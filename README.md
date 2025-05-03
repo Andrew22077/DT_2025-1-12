@@ -1,5 +1,5 @@
-🧭 Herramienta de Gestión para Medición de Competencias del GAC
-Diseño e implementación en programas de Gerencia de Proyectos - Universidad El Bosque
+🧭 **Herramienta de Gestión para Medición de Competencias del GAC
+Diseño e implementación en programas de Gerencia de Proyectos - Universidad El Bosque**
 
 “Lo que no se mide, no se puede mejorar.” – Peter Drucker
 
