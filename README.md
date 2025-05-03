@@ -3,23 +3,23 @@ Diseño e implementación en programas de Gerencia de Proyectos - Universidad El
 
 “Lo que no se mide, no se puede mejorar.” – Peter Drucker
 
-📌 Descripción del Proyecto
+📌 **Descripción del Proyecto**
 
 Este proyecto presenta el desarrollo de una plataforma de gestión integral para medir las competencias clave del GAC (Global Accreditation Center) en programas de posgrado en gerencia de proyectos de la Universidad El Bosque.
 
 La herramienta automatiza procesos de evaluación, genera estadísticas y facilita la toma de decisiones basadas en datos, alineándose con estándares internacionales de calidad educativa exigidos por el PMI.
 
-🧑‍💻 Autores
+🧑‍💻 **Autores**
 
 Andrés Luciano Arquez Abdala
 
 Juan Manuel Olivera Moreno
 
-🎯 Objetivo
+🎯 **Objetivo**
 
 Diseñar e implementar una solución digital que permita evaluar de forma eficiente, trazable y escalable las competencias requeridas por el GAC en estudiantes de primer y segundo semestre.
 
-🛠️ Funcionalidades Clave
+🛠️ **Funcionalidades Clave**
 
 Evaluación automática por competencias (técnicas, estratégicas y personales).
 
@@ -31,11 +31,11 @@ Exportación de resultados para análisis externos.
 
 Panel de administración para docentes y coordinación académica.
 
-🎓 Contexto Académico
+🎓 **Contexto Académico**
 
 El proyecto responde a las necesidades de evaluación continua planteadas por el GAC del PMI, buscando optimizar procesos que antes se realizaban de forma manual y poco sistematizada, y que ahora son parte de una solución innovadora impulsada desde el aula.
 
-📈 Beneficios Esperados
+📈 **Beneficios Esperados**
 
 Mayor objetividad en las mediciones.
 
@@ -45,7 +45,7 @@ Cumplimiento de estándares internacionales.
 
 Reducción de carga operativa para docentes y administrativos.
 
-🧩 Tecnologías Utilizadas
+🧩 **Tecnologías Utilizadas**
 
 Python / Django (Back-end)
 
@@ -55,7 +55,7 @@ MySQL (Base de datos)
 
 Power BI / Matplotlib / Seaborn (Visualización de datos)
 
-📎 Estado del Proyecto
+📎 **Estado del Proyecto**
 
 🟢 En Desarrollo
 
