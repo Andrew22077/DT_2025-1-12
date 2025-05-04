@@ -3,12 +3,27 @@ import logoUnbosque from "../assets/Logo_Unbosque.png";
 import logoGAC from "../assets/logo-GAC.jpg";
 
 const students = [
-  { cedula: "list", nombre: "list", correo: "list" },
-  { cedula: "list", nombre: "list", correo: "list" },
-  { cedula: "list", nombre: "list", correo: "list" },
-  { cedula: "list", nombre: "list", correo: "list" },
+  {
+    cedula: "1032323323",
+    nombre: "Juan Olivera",
+    correo: "12@unbosque.edu.co",
+  },
+  {
+    cedula: "100232132",
+    nombre: "Victor Ortiz",
+    correo: "12@unbosuque.edu.co",
+  },
+  {
+    cedula: "13232233",
+    nombre: "Brayan Holguin",
+    correo: "12@unbosque.edu.co",
+  },
+  {
+    cedula: "132132234",
+    nombre: "Andres Arquez",
+    correo: "12@unbosque.edu.co",
+  },
 ];
-
 export default function Menu() {
   return (
     <div className="min-h-screen bg-[#F8F9F5] p-6 rounded-[40px] flex flex-row gap-6">
