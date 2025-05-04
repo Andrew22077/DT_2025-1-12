@@ -1,26 +1,39 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { FaInfoCircle, FaBars, FaSignInAlt, FaDesktop } from "react-icons/fa";
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <nav className="bg-green-800 text-white px-6 py-4 shadow-md">
+    <nav className="bg-emerald-950 text-white px-6 py-4 shadow-md">
       <div className="container mx-auto flex justify-between items-center">
-        <div className="text-xl font-bold">
+        <div className="flex items-center space-x-2 text-xl font-bold">
+          <FaDesktop color="#91ff00" size={24} />
           <Link to="/">Universidad El Bosque</Link>
         </div>
-        <div className="hidden md:flex space-x-6">
-          <Link to="/information" className="hover:text-yellow-300 transition">
-            Información
+
+        <div className="hidden md:flex space-x-6 items-center">
+          <Link
+            to="/information"
+            className="flex items-center gap-1 hover:text-yellow-300 transition"
+          >
+            <FaInfoCircle color="#91ff00" /> Información
           </Link>
-          <Link to="/menu" className="hover:text-yellow-300 transition">
-            Menú
+          <Link
+            to="/menu"
+            className="flex items-center gap-1 hover:text-yellow-300 transition"
+          >
+            <FaBars color="#91ff00" /> Menú
           </Link>
-          <Link to="/login" className="hover:text-yellow-300 transition">
-            Iniciar Sesion
+          <Link
+            to="/login"
+            className="flex items-center gap-1 hover:text-yellow-300 transition"
+          >
+            <FaSignInAlt color="#91ff00" /> Iniciar Sesión
           </Link>
         </div>
+
         <button
           className="md:hidden focus:outline-none"
           onClick={() => setIsOpen(!isOpen)}
@@ -41,29 +54,28 @@ export function Navigation() {
         </button>
       </div>
 
-      {/* Menú desplegable móvil */}
       {isOpen && (
         <div className="md:hidden flex flex-col px-4 pt-2 pb-4 space-y-2 bg-green-700">
           <Link
             to="/information"
-            className="hover:text-yellow-300 transition"
+            className="flex items-center gap-2 hover:text-yellow-300 transition"
             onClick={() => setIsOpen(false)}
           >
-            Información
+            <FaInfoCircle color="#91ff00" /> Información
           </Link>
           <Link
             to="/menu"
-            className="hover:text-yellow-300 transition"
+            className="flex items-center gap-2 hover:text-yellow-300 transition"
             onClick={() => setIsOpen(false)}
           >
-            Menú
+            <FaBars color="#91ff00" /> Menú
           </Link>
           <Link
-            to="/contact"
-            className="hover:text-yellow-300 transition"
+            to="/login"
+            className="flex items-center gap-2 hover:text-yellow-300 transition"
             onClick={() => setIsOpen(false)}
           >
-            Contacto
+            <FaSignInAlt color="#91ff00" /> Iniciar Sesión
           </Link>
         </div>
       )}
