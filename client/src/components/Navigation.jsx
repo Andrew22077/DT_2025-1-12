@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { FaInfoCircle, FaBars, FaSignInAlt, FaDesktop } from "react-icons/fa";
+import UserMenu from "./UserMenu"; // ✅ Asegúrate de tener esta ruta bien
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
@@ -8,11 +9,13 @@ export function Navigation() {
   return (
     <nav className="bg-emerald-950 text-white px-6 py-4 shadow-md">
       <div className="container mx-auto flex justify-between items-center">
+        {/* Logo e ícono */}
         <div className="flex items-center space-x-2 text-xl font-bold">
           <FaDesktop color="#91ff00" size={24} />
           <Link to="/">Universidad El Bosque</Link>
         </div>
 
+        {/* Navegación para pantallas grandes */}
         <div className="hidden md:flex space-x-6 items-center">
           <Link
             to="/information"
@@ -32,8 +35,12 @@ export function Navigation() {
           >
             <FaSignInAlt color="#91ff00" /> Iniciar Sesión
           </Link>
+
+          {/* Menú de usuario */}
+          <UserMenu />
         </div>
 
+        {/* Botón hamburguesa para móviles */}
         <button
           className="md:hidden focus:outline-none"
           onClick={() => setIsOpen(!isOpen)}
@@ -54,6 +61,7 @@ export function Navigation() {
         </button>
       </div>
 
+      {/* Menú desplegable para móviles */}
       {isOpen && (
         <div className="md:hidden flex flex-col px-4 pt-2 pb-4 space-y-2 bg-green-700">
           <Link
