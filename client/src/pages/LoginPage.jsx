@@ -79,7 +79,7 @@ function LoginPage() {
           </div>
           <button
             type="submit"
-            className="w-full bg-green-800 text-white py-2 rounded-md hover:bg-green-700 transition"
+            className="w-full bg-green-800 text-white py-2 rounded-md hover:bg-orange-500 transition"
           >
             Entrar
           </button>

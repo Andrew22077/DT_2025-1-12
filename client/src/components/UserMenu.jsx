@@ -40,6 +40,15 @@ const UserMenu = () => {
                 <span className="select-none">Información</span>
               </Link>
             </li>
+            <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+              <Link
+                to="/login"
+                className="flex items-center gap-1 hover:text-yellow-300 transition"
+              >
+                <FaSignInAlt color="#91ff00" />
+                <span className="select-none">Iniciar Sesión</span>
+              </Link>
+            </li>
           </ul>
         </div>
       )}

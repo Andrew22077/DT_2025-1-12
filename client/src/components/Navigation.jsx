@@ -18,22 +18,10 @@ export function Navigation() {
         {/* Navegación para pantallas grandes */}
         <div className="hidden md:flex space-x-6 items-center">
           <Link
-            to="/information"
-            className="flex items-center gap-1 hover:text-yellow-300 transition"
-          >
-            <FaInfoCircle color="#91ff00" /> Información
-          </Link>
-          <Link
             to="/menu"
             className="flex items-center gap-1 hover:text-yellow-300 transition"
           >
             <FaBars color="#91ff00" /> Menú
-          </Link>
-          <Link
-            to="/login"
-            className="flex items-center gap-1 hover:text-yellow-300 transition"
-          >
-            <FaSignInAlt color="#91ff00" /> Iniciar Sesión
           </Link>
 
           {/* Menú de usuario */}
