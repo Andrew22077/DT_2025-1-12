@@ -23,7 +23,6 @@ function LoginPage() {
       // Guarda token y permisos
       localStorage.setItem("token", data.token);
       localStorage.setItem("isStaff", data.user.is_staff);
-      localStorage.setItem("isSuperuser", data.user.is_superuser);
 
       // Decide redirección
       if (data.user.is_staff) {
