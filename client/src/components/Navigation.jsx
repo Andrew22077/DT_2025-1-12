@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import logoUnbosque from "../assets/Logo_Unbosque.png";
 import { FaInfoCircle, FaBars, FaSignInAlt } from "react-icons/fa";
-import UserMenu from "./UserMenu"; // ✅ Asegúrate de tener esta ruta bien
+import UserMenu from "./UserMenu"; //
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
@@ -22,14 +22,6 @@ export function Navigation() {
 
         {/* Navegación para pantallas grandes */}
         <div className="hidden md:flex space-x-6 items-center">
-          <Link
-            to="/menu"
-            className="flex items-center gap-1 hover:text-yellow-300 transition"
-          >
-            <FaBars color="#91ff00" /> Menú
-          </Link>
-
-          {/* Menú de usuario */}
           <UserMenu />
         </div>
 

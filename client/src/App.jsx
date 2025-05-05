@@ -16,11 +16,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/menu" />} />
         <Route path="/login" element={<LoginPage />} />
-        <Route path="/menu" element={<MenuPage />} />
-        <Route path="/admin-menu" element={<AdminMenuPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
         <Route path="/information" element={<Information />} />
-        {/* <Route
+        <Route
           path="/menu"
           element={
             <ProtectedRoute>
@@ -35,7 +33,7 @@ function App() {
               <AdminMenuPage />
             </ProtectedRoute>
           }
-        /> */}
+        />
       </Routes>
       <Toaster />
     </BrowserRouter>

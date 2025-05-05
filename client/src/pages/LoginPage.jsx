@@ -1,31 +1,30 @@
 import React, { useState } from "react";
-import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import campusBackground from "../assets/campus-unbosque.jpg";
+import { useAuth } from "../api/Auth"; // Usa el contexto
+
 function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [correo, setCorreo] = useState("");
+  const [contrasenia, setContrasenia] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const { login, user } = useAuth(); // Hook del contexto
+
+  // Si ya hay sesión activa, redirigir
+  if (user) {
+    const isStaff = localStorage.getItem("isStaff") === "true";
+    return <Navigate to={isStaff ? "/admin-menu" : "/menu"} />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
     try {
-      const response = await axios.post("http://localhost:8000/api/login/", {
-        email,
-        password,
-      });
+      const data = await login(correo, contrasenia); // login maneja token y user internamente
 
-      const data = response.data;
-
-      // Guarda token y permisos
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("isStaff", data.user.is_staff);
-
-      // Decide redirección
-      if (data.user.is_staff) {
+      // Redirige según el rol
+      if (data.acceso) {
         navigate("/admin-menu");
       } else {
         navigate("/menu");
@@ -41,10 +40,10 @@ function LoginPage() {
       className="min-h-screen flex items-center justify-center bg-cover bg-center"
       style={{
         backgroundImage: `url(${campusBackground})`,
-        backgroundSize: "cover", // Ajusta la imagen al tamaño de la pantalla
-        backgroundPosition: "center", // Centra la imagen
-        backgroundAttachment: "fixed", // Mantiene la imagen fija mientras se desplaza
-        overflow: "hidden", // Elimina el scrollbar
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundAttachment: "fixed",
+        overflow: "hidden",
       }}
     >
       <div className="bg-white bg-opacity-90 rounded-lg shadow-lg p-8 max-w-sm w-full">
@@ -58,8 +57,8 @@ function LoginPage() {
             </label>
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={correo}
+              onChange={(e) => setCorreo(e.target.value)}
               required
               className="mt-1 block w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-orange-400 focus:border-orange-400"
             />
@@ -70,8 +69,8 @@ function LoginPage() {
             </label>
             <input
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={contrasenia}
+              onChange={(e) => setContrasenia(e.target.value)}
               required
               className="mt-1 block w-full px-3 py-2 border border-green-300 rounded-md focus:outline-none focus:ring-orange-400 focus:border-orange-400"
             />
