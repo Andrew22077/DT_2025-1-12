@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { FaInfoCircle, FaBars, FaSignInAlt, FaDesktop } from "react-icons/fa";
+import logoUnbosque from "../assets/Logo_Unbosque.png";
+import { FaInfoCircle, FaBars, FaSignInAlt } from "react-icons/fa";
 import UserMenu from "./UserMenu"; // ✅ Asegúrate de tener esta ruta bien
 
 export function Navigation() {
@@ -11,8 +12,12 @@ export function Navigation() {
       <div className="container mx-auto flex justify-between items-center">
         {/* Logo e ícono */}
         <div className="flex items-center space-x-2 text-xl font-bold">
-          <FaDesktop color="#91ff00" size={24} />
-          <Link to="/">Universidad El Bosque</Link>
+          <img
+            src={logoUnbosque}
+            alt="Universidad El Bosque"
+            className="w-15 h-auto object-contain"
+          />
+          <Link to="/">Universidad El Bosque Gerencia de Proyectos</Link>
         </div>
 
         {/* Navegación para pantallas grandes */}
