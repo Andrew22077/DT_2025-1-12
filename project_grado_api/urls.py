@@ -21,5 +21,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     re_path('login', views.login_view),
     re_path('register', views.register),
-    re_path('profile', views.profile),
+    re_path('logout', views.logout),
+    re_path('listar-profesores', views.listar_profesores),
 ]

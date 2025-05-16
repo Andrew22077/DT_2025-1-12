@@ -27,7 +27,6 @@ export function Menu() {
         </p>
         <br />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* ICONO GAC */}
           <div className="text-center">
             <img
               src={logoGAC}
@@ -51,8 +50,6 @@ export function Menu() {
               </div>
             )}
           </div>
-
-          {/* ICONO PMI */}
           <div className="text-center">
             <img
               src={logoPMI}
@@ -75,8 +72,6 @@ export function Menu() {
               </div>
             )}
           </div>
-
-          {/* ICONO UNBOSQUE */}
           <div className="text-center">
             <img
               src={logoUnbosque}
@@ -99,8 +94,6 @@ export function Menu() {
               </div>
             )}
           </div>
-
-          {/* ICONO GERENCIAS */}
           <div className="text-center">
             <div
               className="w-32 h-32 mx-auto bg-orange-100 rounded-xl flex items-center justify-center cursor-pointer hover:bg-orange-200 transition"

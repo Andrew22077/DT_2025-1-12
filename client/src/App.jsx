@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Menu } from "./pages/Menu";
 import AdminMenuPage from "./pages/AdminMenu";
+import TeacherList from "./pages/TeacherList";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
@@ -22,6 +23,14 @@ function App() {
           element={
             <ProtectedRoute requireAdmin={true}>
               <AdminMenuPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher-list"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <TeacherList />
             </ProtectedRoute>
           }
         />

@@ -33,6 +33,7 @@ function LoginPage() {
       setError("Correo o contraseña incorrectos");
     }
   };
+
   return (
     <div
       className="min-h-screen flex items-center justify-center bg-cover bg-center"

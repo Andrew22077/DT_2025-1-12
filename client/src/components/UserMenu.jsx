@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../api/Auth";
 import { Link } from "react-router-dom";
-import { FaInfoCircle, FaBars, FaSignInAlt, FaUserTie } from "react-icons/fa";
+import { FaBars, FaSignInAlt, FaUserTie, FaInfoCircle } from "react-icons/fa";
 
 const UserMenu = () => {
   const [open, setOpen] = useState(false);
@@ -37,6 +37,7 @@ const UserMenu = () => {
               </Link>
             </li>
 
+            {/* Si no hay usuario logueado */}
             {!user && (
               <li className="p-3 hover:bg-emerald-950 cursor-pointer">
                 <Link
@@ -48,14 +49,32 @@ const UserMenu = () => {
                 </Link>
               </li>
             )}
+
+            {/* Si hay usuario logueado */}
             {user && (
-              <li
-                onClick={() => logout()}
-                className="p-3 hover:bg-emerald-950 cursor-pointer flex items-center gap-2 hover:text-red-400 transition"
-              >
-                <FaSignInAlt color="white" />
-                <span className="select-none">Cerrar sesión</span>
-              </li>
+              <>
+                {/* Si el usuario es staff, mostrar la opción "Teacher List" */}
+                {user.is_staff && (
+                  <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+                    <Link
+                      to="/teacher-list" // Enlace al TeacherList
+                      className="flex items-center gap-1 hover:text-yellow-300 transition"
+                    >
+                      <FaInfoCircle color="#91ff00" />
+                      <span className="select-none">Lista de Profesores</span>
+                    </Link>
+                  </li>
+                )}
+
+                {/* Cerrar sesión */}
+                <li
+                  onClick={() => logout()}
+                  className="p-3 hover:bg-emerald-950 cursor-pointer flex items-center gap-2 hover:text-red-400 transition"
+                >
+                  <FaSignInAlt color="white" />
+                  <span className="select-none">Cerrar sesión</span>
+                </li>
+              </>
             )}
           </ul>
         </div>
