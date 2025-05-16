@@ -8,9 +8,8 @@ function LoginPage() {
   const [contrasenia, setContrasenia] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { login, user } = useAuth(); // Hook del contexto
+  const { login, user } = useAuth();
 
-  // Si ya hay sesión activa, redirigir
   if (user) {
     const isStaff = localStorage.getItem("isStaff") === "true";
     return <Navigate to={isStaff ? "/admin-menu" : "/menu"} />;
@@ -21,7 +20,7 @@ function LoginPage() {
     setError("");
 
     try {
-      const data = await login(correo, contrasenia); // login maneja token y user internamente
+      const data = await login(correo, contrasenia);
 
       // Redirige según el rol
       if (data.acceso) {
@@ -34,7 +33,6 @@ function LoginPage() {
       setError("Correo o contraseña incorrectos");
     }
   };
-
   return (
     <div
       className="min-h-screen flex items-center justify-center bg-cover bg-center"
