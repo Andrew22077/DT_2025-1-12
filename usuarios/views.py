@@ -53,7 +53,7 @@ def register(request):
         return Response({"mensaje": "Profesor registrado con éxito."}, status=201)
 
     return Response(serializer.errors, status=400)
-
+    
 
 @api_view(['POST'])
 def logout(request):
@@ -101,3 +101,26 @@ def profesor_detail(request, id):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=400)
+
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated, IsStaffUser])  # Solo los administradores pueden cambiar el estado
+def update_profesor_status(request, id):
+    try:
+        profesor = Profesor.objects.get(id=id)
+    except Profesor.DoesNotExist:
+        return Response({'error': 'Profesor no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Cambiar is_staff o is_active según el cuerpo de la solicitud
+    is_admin = request.data.get('is_staff', None)
+    is_active = request.data.get('is_active', None)
+
+    if is_admin is not None:
+        profesor.is_staff = is_admin
+    if is_active is not None:
+        profesor.is_active = is_active
+
+    profesor.save()
+
+    # Serializar el objeto actualizado
+    serializer = ProfesorSerializer(profesor)
+    return Response(serializer.data, status=status.HTTP_200_OK)

@@ -1,105 +1,163 @@
+// src/components/RegisterPage.js
 import React, { useState, useEffect } from "react";
 import { registerProfesor, updateProfesor } from "../api/UserApi";
+import { useNavigate } from "react-router-dom";
 
 const RegisterPage = ({ editing = false, profesor = null }) => {
-  const [form, setForm] = useState({
-    cedula: "",
+  const [formData, setFormData] = useState({
     nombre: "",
     correo: "",
-    contrasenia: "",
+    cedula: "",
+    password: "",
+    is_staff: false,
+    is_active: true,
   });
 
-  const [mensaje, setMensaje] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (editing && profesor) {
-      setForm({
-        cedula: profesor.cedula || "",
-        nombre: profesor.nombre || "",
-        correo: profesor.correo || "",
-        contrasenia: "", // No se llena por seguridad
+      setFormData({
+        nombre: profesor.nombre,
+        correo: profesor.correo,
+        cedula: profesor.cedula,
+        password: "", // No se edita la contraseña
+        is_staff: profesor.is_staff,
+        is_active: profesor.is_active,
       });
     }
   }, [editing, profesor]);
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prevData) => ({
+      ...prevData,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMensaje("");
-    setError("");
-
     try {
-      if (editing && profesor?.id) {
-        await updateProfesor(profesor.id, form);
-        setMensaje("Profesor actualizado con éxito.");
+      if (editing) {
+        // En edición, se envían todos los campos
+        await updateProfesor(profesor.id, formData);
       } else {
-        const data = await registerProfesor(form);
-        setMensaje(data.mensaje || "Registro exitoso");
-        setForm({ cedula: "", nombre: "", correo: "", contrasenia: "" });
+        // En registro, solo se envían los campos necesarios
+        const { nombre, correo, cedula, password } = formData;
+        await registerProfesor({ nombre, correo, cedula, password });
       }
+      navigate("/teacher-list");
     } catch {
-      setError("Ocurrió un error. Verifica los campos.");
+      setError("Error al registrar o actualizar el profesor.");
     }
   };
 
   return (
-    <div className="p-6 max-w-md mx-auto bg-white rounded shadow-md mt-10">
-      <h2 className="text-2xl font-bold mb-4 text-center text-green-700">
+    <div className="p-5 max-w-lg mx-auto">
+      <h2 className="text-3xl font-semibold mb-5">
         {editing ? "Editar Profesor" : "Registrar Profesor"}
       </h2>
+
+      {error && <p className="text-red-500">{error}</p>}
+
       <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          type="text"
-          name="cedula"
-          placeholder="Cédula"
-          value={form.cedula}
-          onChange={handleChange}
-          required
-          className="w-full border px-3 py-2 rounded"
-        />
-        <input
-          type="text"
-          name="nombre"
-          placeholder="Nombre"
-          value={form.nombre}
-          onChange={handleChange}
-          required
-          className="w-full border px-3 py-2 rounded"
-        />
-        <input
-          type="email"
-          name="correo"
-          placeholder="Correo"
-          value={form.correo}
-          onChange={handleChange}
-          required
-          className="w-full border px-3 py-2 rounded"
-        />
-        {!editing && (
+        <div>
+          <label htmlFor="nombre" className="block">
+            Nombre
+          </label>
           <input
-            type="password"
-            name="contrasenia"
-            placeholder="Contraseña"
-            value={form.contrasenia}
-            onChange={handleChange}
+            type="text"
+            id="nombre"
+            name="nombre"
+            value={formData.nombre}
+            onChange={handleInputChange}
+            className="px-4 py-2 border rounded w-full"
             required
-            className="w-full border px-3 py-2 rounded"
           />
+        </div>
+
+        <div>
+          <label htmlFor="correo" className="block">
+            Correo
+          </label>
+          <input
+            type="email"
+            id="correo"
+            name="correo"
+            value={formData.correo}
+            onChange={handleInputChange}
+            className="px-4 py-2 border rounded w-full"
+            required
+          />
+        </div>
+
+        <div>
+          <label htmlFor="cedula" className="block">
+            Cédula
+          </label>
+          <input
+            type="text"
+            id="cedula"
+            name="cedula"
+            value={formData.cedula}
+            onChange={handleInputChange}
+            className="px-4 py-2 border rounded w-full"
+            required
+          />
+        </div>
+
+        {!editing && (
+          <div>
+            <label htmlFor="password" className="block">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              className="px-4 py-2 border rounded w-full"
+              required
+            />
+          </div>
         )}
+
+        {editing && (
+          <>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="is_active"
+                checked={formData.is_active}
+                onChange={handleInputChange}
+                className="mr-2"
+              />
+              <label htmlFor="is_active">Activo</label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="is_staff"
+                checked={formData.is_staff}
+                onChange={handleInputChange}
+                className="mr-2"
+              />
+              <label htmlFor="is_staff">Administrador</label>
+            </div>
+          </>
+        )}
+
         <button
           type="submit"
-          className="w-full bg-green-700 text-white py-2 rounded hover:bg-green-800"
+          className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
         >
           {editing ? "Actualizar" : "Registrar"}
         </button>
       </form>
-
-      {mensaje && <p className="text-green-600 mt-4">{mensaje}</p>}
-      {error && <p className="text-red-600 mt-4">{error}</p>}
     </div>
   );
 };

@@ -1,3 +1,4 @@
+// src/components/RegisterWrapper.js
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import RegisterPage from "./RegisterPage";

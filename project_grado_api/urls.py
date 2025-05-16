@@ -24,4 +24,5 @@ urlpatterns = [
     re_path('logout', views.logout),  # Ruta para logout
     re_path('listar-profesores', views.listar_profesores),  # Ruta para listar los profesores
     re_path('profesor/(?P<id>[0-9]+)', views.profesor_detail),  # Ruta para editar un profesor por ID
+    re_path(r'^api/profesores/(?P<id>[0-9]+)/update/$', views.update_profesor_status, name='update_profesor_status'),
 ]
