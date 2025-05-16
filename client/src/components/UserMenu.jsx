@@ -30,23 +30,13 @@ const UserMenu = () => {
           <ul>
             <li className="p-3 hover:bg-emerald-950 cursor-pointer">
               <Link
-                to="/information"
+                to="/menu"
                 className="flex items-center gap-1 hover:text-yellow-300 transition"
               >
-                <FaInfoCircle color="#91ff00" />
-                Información
+                <FaBars color="#91ff00" /> Menú
               </Link>
             </li>
-            {user && (
-              <li className="p-3 hover:bg-emerald-950 cursor-pointer">
-                <Link
-                  to="/menu"
-                  className="flex items-center gap-1 hover:text-yellow-300 transition"
-                >
-                  <FaBars color="#91ff00" /> Menú
-                </Link>
-              </li>
-            )}
+
             {!user && (
               <li className="p-3 hover:bg-emerald-950 cursor-pointer">
                 <Link

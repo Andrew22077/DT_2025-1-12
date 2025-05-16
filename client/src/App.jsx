@@ -1,9 +1,8 @@
 import React from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
-import MenuPage from "./pages/Menu";
+import { Menu } from "./pages/Menu";
 import AdminMenuPage from "./pages/AdminMenu";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { Information } from "./pages/Information";
 import LoginPage from "./pages/LoginPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import { Navigation } from "./components/Navigation";
@@ -17,15 +16,7 @@ function App() {
         <Route path="/" element={<Navigate to="/menu" />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
-        <Route path="/information" element={<Information />} />
-        <Route
-          path="/menu"
-          element={
-            <ProtectedRoute>
-              <MenuPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/menu" element={<Menu />} />
         <Route
           path="/admin-menu"
           element={
