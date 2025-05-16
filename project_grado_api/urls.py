@@ -18,9 +18,10 @@ from django.contrib import admin
 from django.urls import path, re_path
 from usuarios import views
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    re_path('login', views.login_view),
-    re_path('register', views.register),
-    re_path('logout', views.logout),
-    re_path('listar-profesores', views.listar_profesores),
+    path('admin/', admin.site.urls),  # Ruta para el admin
+    re_path('login', views.login_view),  # Ruta para el login
+    re_path('register', views.register),  # Ruta para el registro
+    re_path('logout', views.logout),  # Ruta para logout
+    re_path('listar-profesores', views.listar_profesores),  # Ruta para listar los profesores
+    re_path('profesor/(?P<id>[0-9]+)', views.profesor_detail),  # Ruta para editar un profesor por ID
 ]

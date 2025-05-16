@@ -8,6 +8,8 @@ import LoginPage from "./pages/LoginPage";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import { Navigation } from "./components/Navigation";
 import { Toaster } from "react-hot-toast";
+import RegisterPage from "./pages/RegisterPage";
+import RegisterWrapper from "./pages/RegisterWrapper";
 
 function App() {
   return (
@@ -34,7 +36,24 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/registrar"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <RegisterPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/editar/:id"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <RegisterWrapper />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
+
       <Toaster />
     </BrowserRouter>
   );

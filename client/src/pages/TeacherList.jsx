@@ -1,12 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { getProfesores } from "../api/UserApi"; // Importamos la función para obtener usuarios
+import { getProfesores } from "../api/UserApi";
+import { useNavigate } from "react-router-dom"; // Usamos useNavigate para redirigir al usuario
 
 const TeacherList = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({
+    nombre: "",
+    correo: "",
+    estado: "", // Filtro para el estado (activo/inactivo)
+  });
 
-  const token = localStorage.getItem("token"); // Suponiendo que guardas el token en localStorage
+  const token = localStorage.getItem("token");
+  const navigate = useNavigate(); // Hook para redirigir al usuario
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -23,17 +30,90 @@ const TeacherList = () => {
     fetchUsers();
   }, [token]);
 
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters((prevFilters) => ({
+      ...prevFilters,
+      [name]: value,
+    }));
+  };
+
+  // Filtrar los usuarios con base en los filtros
+  const filteredUsers = users.filter((user) => {
+    return (
+      (filters.nombre
+        ? user.nombre.toLowerCase().includes(filters.nombre.toLowerCase())
+        : true) &&
+      (filters.correo
+        ? user.correo.toLowerCase().includes(filters.correo.toLowerCase())
+        : true) &&
+      (filters.estado
+        ? filters.estado === "activo"
+          ? user.is_active
+          : !user.is_active
+        : true)
+    );
+  });
+
   if (loading) return <p>Cargando usuarios...</p>;
   if (error) return <p>{error}</p>;
+
+  const handleCardClick = (userId) => {
+    // Redirigir al usuario a la página de edición
+    navigate(`/editar/${userId}`);
+  };
 
   return (
     <div className="p-5 text-center">
       <h2 className="text-3xl font-semibold mb-5">Lista de Profesores</h2>
+
+      {/* Filtros y Botón de Registrar Profesor */}
+      <div className="flex justify-between mb-5 items-center">
+        <div className="flex space-x-4">
+          <input
+            type="text"
+            name="nombre"
+            value={filters.nombre}
+            onChange={handleFilterChange}
+            placeholder="Filtrar por nombre"
+            className="px-4 py-2 border rounded"
+          />
+          <input
+            type="text"
+            name="correo"
+            value={filters.correo}
+            onChange={handleFilterChange}
+            placeholder="Filtrar por correo"
+            className="px-4 py-2 border rounded"
+          />
+          <select
+            name="estado"
+            value={filters.estado}
+            onChange={handleFilterChange}
+            className="px-4 py-2 border rounded"
+          >
+            <option value="">Filtrar por estado</option>
+            <option value="activo">Activo</option>
+            <option value="inactivo">Inactivo</option>
+          </select>
+        </div>
+
+        {/* Botón para registrar un nuevo profesor */}
+        <button
+          onClick={() => navigate("/registrar")}
+          className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600"
+        >
+          Registrar Profesor
+        </button>
+      </div>
+
+      {/* Lista de Profesores */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {users.map((user) => (
+        {filteredUsers.map((user) => (
           <div
-            className="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 ease-in-out"
             key={user.id}
+            className="bg-white p-5 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 ease-in-out cursor-pointer"
+            onClick={() => handleCardClick(user.id)} // Redirigir al hacer clic
           >
             <div className="flex justify-center mb-4">
               <img

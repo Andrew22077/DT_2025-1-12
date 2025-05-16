@@ -44,6 +44,7 @@ def login_view(request):
 
 
 @api_view(['POST'])
+@permission_classes([IsAuthenticated, IsStaffUser]) 
 def register(request):
     serializer = ProfesorSerializer(data=request.data)
 
@@ -58,7 +59,7 @@ def register(request):
 def logout(request):
     try:
         
-        request.user.auth_token.delete()  # Eliminar el token de autenticación
+        request.user.auth_token.delete()  
         return Response({'mensaje': 'Sesión cerrada exitosamente.'}, status=status.HTTP_200_OK)
     except:
         return Response({'error': 'Error al cerrar sesión.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -73,3 +74,30 @@ def listar_profesores(request):
     profesores = Profesor.objects.all()
     serializer = ProfesorSerializer(profesores, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAuthenticated])
+def profesor_detail(request, id):
+    try:
+        profesor = Profesor.objects.get(id=id)
+    except Profesor.DoesNotExist:
+        return Response({'error': 'Profesor no encontrado'}, status=404)
+
+    if request.method == 'GET':
+        serializer = ProfesorSerializer(profesor)
+        return Response(serializer.data)
+
+    elif request.method == 'PUT':
+        data = request.data.copy()
+        # Si la contraseña no se actualiza, elimínala
+        if not data.get('contrasenia'):
+            data.pop('contrasenia', None)
+
+        serializer = ProfesorSerializer(profesor, data=data, partial=True)
+        if serializer.is_valid():
+            if 'contrasenia' in data:
+                profesor.set_password(data['contrasenia'])
+                profesor.save()
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
