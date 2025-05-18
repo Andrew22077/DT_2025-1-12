@@ -78,6 +78,8 @@ export const updateProfesorStatus = async (id, data) => {
     throw error;
   }
 };
+
+
 export const registerProfesor = async (datos) => {
   try {
     // Obtener el token del localStorage
@@ -109,6 +111,58 @@ export const registerProfesor = async (datos) => {
       "Error al registrar profesor:",
       error.response?.data || error.message
     );
+    throw error;
+  }
+};
+
+// Importar Excel de profesores
+export const importExcelProfesores = async (file) => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("Token no encontrado");
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await axios.post(`${API_URL}/import-excel-profesores/`, formData, {
+      headers: {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error al importar Excel:", error);
+    throw error;
+  }
+};
+
+// Exportar profesores a Excel
+export const exportProfesoresExcel = async () => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("Token no encontrado");
+
+  try {
+    const response = await axios.get(`${API_URL}/export-excel-profesores/`, {
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+      responseType: 'blob', // Importante para archivos
+    });
+    
+    // Crear URL para descargar el archivo
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `profesores_${new Date().toISOString().split('T')[0]}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+    
+    return true;
+  } catch (error) {
+    console.error("Error al exportar Excel:", error);
     throw error;
   }
 };

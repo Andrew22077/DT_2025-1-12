@@ -8,7 +8,11 @@ from rest_framework.permissions import AllowAny
 from .models import Profesor
 from .serializers import ProfesorSerializer
 from .permissions import IsStaffUser
-
+import pandas as pd
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -124,3 +128,122 @@ def update_profesor_status(request, id):
     # Serializar el objeto actualizado
     serializer = ProfesorSerializer(profesor)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+# Función para exportar profesores a Excel
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def export_teachers_excel(request):
+    # Obtener todos los profesores
+    teachers = Teacher.objects.all().values()
+    
+    # Crear un DataFrame con los datos
+    df = pd.DataFrame(list(teachers))
+    
+    # Crear una respuesta HTTP con el archivo Excel
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=teachers.xlsx'
+    
+    # Guardar el DataFrame como Excel
+    df.to_excel(response, index=False)
+    
+    return response
+
+# Función para importar profesores desde Excel
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def import_excel_profesores(request):
+    try:
+        if 'file' not in request.FILES:
+            return Response({'error': 'No se proporcionó archivo'}, status=status.HTTP_400_BAD_REQUEST)
+
+        excel_file = request.FILES['file']
+
+        if not excel_file.name.endswith(('.xlsx', '.xls')):
+            return Response({'error': 'El archivo debe ser Excel (.xlsx o .xls)'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            df = pd.read_excel(excel_file, skiprows=3)
+        except Exception as e:
+            return Response({'error': f'Error al leer el archivo Excel: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        required_columns = {
+            'APELLIDOS NOMBRES': 'nombre_completo',
+            'No. DE IDENTIFICACIÓN': 'cedula',
+            'CORREO  INSTITUCIONAL': 'correo_institucional',  # OJO: doble espacio
+            'CORREO PERSONAL': 'correo_personal'
+        }
+
+        obligatory_columns = ['APELLIDOS NOMBRES', 'No. DE IDENTIFICACIÓN']
+        missing_columns = [col for col in obligatory_columns if col not in df.columns]
+
+        if missing_columns:
+            return Response({
+                'error': f'Faltan las siguientes columnas obligatorias: {", ".join(missing_columns)}'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Procesar y limpiar datos
+        processed_data = {}
+        for excel_col, field_name in required_columns.items():
+            if excel_col in df.columns:
+                processed_data[field_name] = df[excel_col].fillna('').astype(str).str.strip()
+            else:
+                processed_data[field_name] = pd.Series([''] * len(df))
+
+        processed_df = pd.DataFrame(processed_data)
+
+        created_count = 0
+        errors = []
+
+        for index, row in processed_df.iterrows():
+            try:
+                nombre_completo = row.get('nombre_completo', '').strip()
+                cedula = ''.join(filter(str.isdigit, row.get('cedula', '').strip()))
+
+                # Obtener correo institucional y personal
+                correo_institucional = row.get('correo_institucional', '').strip()
+                correo_personal = row.get('correo_personal', '').strip()
+
+                # Validar y reemplazar si es necesario
+                if not correo_institucional or correo_institucional.lower() == 'nan':
+                    correo = correo_personal
+                else:
+                    correo = correo_institucional
+
+                if not nombre_completo or not cedula:
+                    errors.append(f"Fila {index + 2}: Nombre o cédula faltante o vacía")
+                    continue
+
+                if len(cedula) < 6:
+                    errors.append(f"Fila {index + 2}: Cédula inválida ({cedula})")
+                    continue
+
+                profesor_data = {
+                    'nombre': nombre_completo,
+                    'cedula': cedula,
+                    'correo': correo,
+                    'contrasenia': cedula  # Contraseña por defecto
+                }
+
+                serializer = ProfesorSerializer(data=profesor_data)
+
+                if serializer.is_valid():
+                    serializer.save()
+                    created_count += 1
+                else:
+                    errors.append(f"Fila {index + 2}: {serializer.errors}")
+
+            except Exception as e:
+                errors.append(f"Fila {index + 2}: Error inesperado - {str(e)}")
+                continue
+
+        return Response({
+            'message': 'Importación completada',
+            'created': created_count,
+            'total_rows': len(processed_df),
+            'errors': errors
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({
+            'error': f'Error inesperado al procesar archivo: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

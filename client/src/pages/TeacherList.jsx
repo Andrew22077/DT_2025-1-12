@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getProfesores } from "../api/UserApi";
-import { useNavigate } from "react-router-dom"; // Usamos useNavigate para redirigir al usuario
+import { useNavigate } from "react-router-dom";
+import ImportExportExcel from "../components/ImportExportExcel"; // Importamos el nuevo componente
 
 const TeacherList = () => {
   const [users, setUsers] = useState([]);
@@ -15,18 +16,18 @@ const TeacherList = () => {
   const token = localStorage.getItem("token");
   const navigate = useNavigate(); // Hook para redirigir al usuario
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const usersData = await getProfesores(token);
-        setUsers(usersData);
-        setLoading(false);
-      } catch {
-        setError("No se pudieron cargar los usuarios.");
-        setLoading(false);
-      }
-    };
+  const fetchUsers = async () => {
+    try {
+      const usersData = await getProfesores(token);
+      setUsers(usersData);
+      setLoading(false);
+    } catch {
+      setError("No se pudieron cargar los usuarios.");
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchUsers();
   }, [token]);
 
@@ -36,6 +37,11 @@ const TeacherList = () => {
       ...prevFilters,
       [name]: value,
     }));
+  };
+
+  // Manejador para cuando se complete una importación exitosa
+  const handleImportSuccess = () => {
+    fetchUsers(); // Recargamos la lista de profesores
   };
 
   // Filtrar los usuarios con base en los filtros
@@ -66,6 +72,9 @@ const TeacherList = () => {
   return (
     <div className="p-5 text-center">
       <h2 className="text-3xl font-semibold mb-5">Lista de Profesores</h2>
+
+      {/* Componente de importación/exportación de Excel */}
+      <ImportExportExcel onImportSuccess={handleImportSuccess} />
 
       {/* Filtros y Botón de Registrar Profesor */}
       <div className="flex justify-between mb-5 items-center flex-wrap ">
@@ -103,8 +112,6 @@ const TeacherList = () => {
             Registrar Profesor
           </button>
         </div>
-
-        {/* Botón para registrar un nuevo profesor */}
       </div>
 
       {/* Lista de Profesores */}
