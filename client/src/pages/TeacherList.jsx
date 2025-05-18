@@ -68,8 +68,8 @@ const TeacherList = () => {
       <h2 className="text-3xl font-semibold mb-5">Lista de Profesores</h2>
 
       {/* Filtros y Botón de Registrar Profesor */}
-      <div className="flex justify-between mb-5 items-center">
-        <div className="flex space-x-4">
+      <div className="flex justify-between mb-5 items-center flex-wrap ">
+        <div className="flex space-x-4 items-center center">
           <input
             type="text"
             name="nombre"
@@ -96,15 +96,15 @@ const TeacherList = () => {
             <option value="activo">Activo</option>
             <option value="inactivo">Inactivo</option>
           </select>
+          <button
+            onClick={() => navigate("/registrar")}
+            className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600"
+          >
+            Registrar Profesor
+          </button>
         </div>
 
         {/* Botón para registrar un nuevo profesor */}
-        <button
-          onClick={() => navigate("/registrar")}
-          className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600"
-        >
-          Registrar Profesor
-        </button>
       </div>
 
       {/* Lista de Profesores */}
