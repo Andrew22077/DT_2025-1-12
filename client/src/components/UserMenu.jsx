@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "../api/Auth";
 import { Link } from "react-router-dom";
-import { FaBars, FaSignInAlt, FaUserTie, FaInfoCircle } from "react-icons/fa";
+import { FaBars, FaHighlighter, FaSignInAlt, FaUserTie, FaInfoCircle } from "react-icons/fa";
 
 const UserMenu = () => {
   const [open, setOpen] = useState(false);
@@ -49,6 +49,19 @@ const UserMenu = () => {
                 </Link>
               </li>
             )}
+
+            {user && (
+              <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+                <Link
+                  to="/editar-perfil"
+                  className="flex items-center gap-1 hover:text-yellow-300 transition"
+                >
+                  <FaHighlighter color="#91ff00" />
+                  <span className="select-none">Editar Perfil</span>
+                </Link>
+              </li>
+            )}
+
 
             {/* Si hay usuario logueado */}
             {user && (

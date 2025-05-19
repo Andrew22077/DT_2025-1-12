@@ -26,5 +26,6 @@ urlpatterns = [
     re_path('profesor/(?P<id>[0-9]+)', views.profesor_detail),  # Ruta para editar un profesor por ID
     re_path(r'^api/profesores/(?P<id>[0-9]+)/update/$', views.update_profesor_status, name='update_profesor_status'),
     re_path('import-excel-profesores', views.import_excel_profesores, name='import_excel_profesores'),
+    re_path(r'^perfil/actualizar/$', views.actualizar_perfil_usuario),
     #re_path('export-excel-profesores/', views.export_excel_profesores, name='export_excel_profesores'),
 ]

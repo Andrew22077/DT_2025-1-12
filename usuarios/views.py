@@ -247,3 +247,23 @@ def import_excel_profesores(request):
         return Response({
             'error': f'Error inesperado al procesar archivo: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def actualizar_perfil_usuario(request):
+    usuario = request.user  # Usuario autenticado
+
+    data = request.data.copy()
+
+    # Si no se quiere actualizar la contraseña, la eliminamos de los datos
+    if not data.get('contrasenia'):
+        data.pop('contrasenia', None)
+
+    serializer = ProfesorSerializer(usuario, data=data, partial=True)
+    if serializer.is_valid():
+        if 'contrasenia' in data:
+            usuario.set_password(data['contrasenia'])
+            usuario.save()
+        serializer.save()
+        return Response({'mensaje': 'Perfil actualizado correctamente', 'usuario': serializer.data})
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

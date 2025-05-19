@@ -166,3 +166,25 @@ export const exportProfesoresExcel = async () => {
     throw error;
   }
 };
+
+// Actualizar datos del usuario autenticado
+export const actualizarPerfilUsuario = async (datos) => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("Token no encontrado");
+
+  try {
+    const response = await axios.put(
+      `http://localhost:8000/perfil/actualizar/`, // sin /api/
+      datos,
+      {
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Error al actualizar perfil del usuario:", error);
+    throw error;
+  }
+};

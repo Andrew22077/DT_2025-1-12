@@ -10,12 +10,14 @@ import { Navigation } from "./components/Navigation";
 import { Toaster } from "react-hot-toast";
 import RegisterPage from "./pages/RegisterPage";
 import RegisterWrapper from "./pages/RegisterWrapper";
+import EditarPerfil from './pages/EditProfile';
 
 function App() {
   return (
     <BrowserRouter>
       <Navigation />
       <Routes>
+        <Route path="/editar-perfil" element={<EditarPerfil />} />
         <Route path="/" element={<Navigate to="/menu" />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
