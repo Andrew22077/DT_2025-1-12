@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { useAuth } from "../api/Auth";
 import { Link } from "react-router-dom";
-import { FaBars, FaHighlighter, FaSignInAlt, FaUserTie, FaInfoCircle } from "react-icons/fa";
+import {
+  FaBars,
+  FaHighlighter,
+  FaSignInAlt,
+  FaUserTie,
+  FaInfoCircle,
+} from "react-icons/fa";
 
 const UserMenu = () => {
   const [open, setOpen] = useState(false);
@@ -28,15 +34,6 @@ const UserMenu = () => {
       {open && (
         <div className="absolute right-0 mt-2 w-64 bg-emerald-900 text-white border border-emerald-950 rounded-md shadow-lg z-10">
           <ul>
-            <li className="p-3 hover:bg-emerald-950 cursor-pointer">
-              <Link
-                to="/menu"
-                className="flex items-center gap-1 hover:text-yellow-300 transition"
-              >
-                <FaBars color="#91ff00" /> Menú
-              </Link>
-            </li>
-
             {/* Si no hay usuario logueado */}
             {!user && (
               <li className="p-3 hover:bg-emerald-950 cursor-pointer">
@@ -49,7 +46,16 @@ const UserMenu = () => {
                 </Link>
               </li>
             )}
-
+            {user && (
+              <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+                <Link
+                  to="/teacher-menu"
+                  className="flex items-center gap-1 hover:text-yellow-300 transition"
+                >
+                  <FaBars color="#91ff00" /> Menú
+                </Link>
+              </li>
+            )}
             {user && (
               <li className="p-3 hover:bg-emerald-950 cursor-pointer">
                 <Link
@@ -61,7 +67,6 @@ const UserMenu = () => {
                 </Link>
               </li>
             )}
-
 
             {/* Si hay usuario logueado */}
             {user && (
@@ -84,8 +89,13 @@ const UserMenu = () => {
                   onClick={() => logout()}
                   className="p-3 hover:bg-emerald-950 cursor-pointer flex items-center gap-2 hover:text-red-400 transition"
                 >
-                  <FaSignInAlt color="white" />
-                  <span className="select-none">Cerrar sesión</span>
+                  <Link
+                    to="/information" // Enlace al TeacherList
+                    className="flex items-center gap-1 hover:text-yellow-300 transition"
+                  >
+                    <FaSignInAlt color="white" />
+                    <span className="select-none">Cerrar sesión</span>
+                  </Link>
                 </li>
               </>
             )}

@@ -4,7 +4,7 @@ import logoUnbosque from "../assets/Logo_Unbosque.png";
 import logoGAC from "../assets/logo-GAC.jpg";
 import logoPMI from "../assets/logo-PMI.png";
 
-export function Menu() {
+export function Information() {
   const [activePanel, setActivePanel] = useState(null);
 
   const togglePanel = (panelName) => {

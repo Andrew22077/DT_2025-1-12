@@ -12,7 +12,7 @@ function LoginPage() {
 
   if (user) {
     const isStaff = localStorage.getItem("isStaff") === "true";
-    return <Navigate to={isStaff ? "/admin-menu" : "/menu"} />;
+    return <Navigate to={isStaff ? "/admin-menu" : "/teacher-menu"} />;
   }
 
   const handleSubmit = async (e) => {

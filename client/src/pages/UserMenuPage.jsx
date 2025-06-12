@@ -5,13 +5,12 @@ import { MdInsertChart } from "react-icons/md";
 import backgroundImage from "../assets/campus-unbosque.jpg";
 
 const menuItems = [
-  { icon: <FaUserTie size={150} />, label: "Profesores" },
   { icon: <FaUserGraduate size={150} />, label: "Estudiantes" },
   { icon: <FiFileText size={150} />, label: "Informes" },
   { icon: <FaCog size={150} />, label: "Configuración" },
 ];
 
-export default function MenuAdmin() {
+export default function TeacherMenu() {
   return (
     <div
       className="min-h-screen bg-cover bg-center flex items-start justify-center p-8"
