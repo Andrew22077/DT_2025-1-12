@@ -17,7 +17,7 @@ export default function MenuAdmin() {
       className="min-h-screen bg-cover bg-center flex items-start justify-center p-8"
       style={{ backgroundImage: `url(${backgroundImage})` }}
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 bg-white/90 p-16 rounded-[40px] border-4 border-[#FFA500] shadow-2xl max-w-[1300px] w-full aspect-square max-h-[80vh]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 bg-white/90 p-16 rounded-[40px] border-4 border-[#FFA500] shadow-2xl max-w-[1300px] w-full aspect-square max-h-[80vh]">
         {menuItems.map((item, index) => (
           <div
             key={index}

@@ -47,31 +47,17 @@ const UserMenu = () => {
               </li>
             )}
             {user && (
-              <li className="p-3 hover:bg-emerald-950 cursor-pointer">
-                <Link
-                  to="/teacher-menu"
-                  className="flex items-center gap-1 hover:text-yellow-300 transition"
-                >
-                  <FaBars color="#91ff00" /> Menú
-                </Link>
-              </li>
-            )}
-            {user && (
-              <li className="p-3 hover:bg-emerald-950 cursor-pointer">
-                <Link
-                  to="/editar-perfil"
-                  className="flex items-center gap-1 hover:text-yellow-300 transition"
-                >
-                  <FaHighlighter color="#91ff00" />
-                  <span className="select-none">Editar Perfil</span>
-                </Link>
-              </li>
-            )}
-
-            {/* Si hay usuario logueado */}
-            {user && (
               <>
-                {/* Si el usuario es staff, mostrar la opción "Teacher List" */}
+                {!user.is_staff && (
+                  <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+                    <Link
+                      to="/teacher-menu"
+                      className="flex items-center gap-1 hover:text-yellow-300 transition"
+                    >
+                      <FaBars color="#91ff00" /> Menú
+                    </Link>
+                  </li>
+                )}
                 {user.is_staff && (
                   <li className="p-3 hover:bg-emerald-950 cursor-pointer">
                     <Link
@@ -83,6 +69,26 @@ const UserMenu = () => {
                     </Link>
                   </li>
                 )}
+                {user.is_staff && (
+                  <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+                    <Link
+                      to="/admin-menu" // Enlace al TeacherList
+                      className="flex items-center gap-1 hover:text-yellow-300 transition"
+                    >
+                      <FaBars color="#91ff00" />
+                      <span className="select-none">Menu Administrador</span>
+                    </Link>
+                  </li>
+                )}
+                <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+                  <Link
+                    to="/editar-perfil"
+                    className="flex items-center gap-1 hover:text-yellow-300 transition"
+                  >
+                    <FaHighlighter color="#91ff00" />
+                    <span className="select-none">Editar Perfil</span>
+                  </Link>
+                </li>
 
                 {/* Cerrar sesión */}
                 <li
