@@ -12,6 +12,7 @@ import RegisterPage from "./pages/RegisterPage";
 import RegisterWrapper from "./pages/RegisterWrapper";
 import EditarPerfil from "./pages/EditProfile";
 import UserMenuPage from "./pages/UserMenuPage";
+import EstudiantesListPage from "./pages/EstudiantesListPage";
 
 function App() {
   return (
@@ -44,6 +45,14 @@ function App() {
           element={
             <ProtectedRoute requireAdmin={true}>
               <TeacherList />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student-list"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <EstudiantesListPage />
             </ProtectedRoute>
           }
         />

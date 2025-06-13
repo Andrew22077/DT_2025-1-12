@@ -28,4 +28,11 @@ urlpatterns = [
     re_path('import-excel-profesores', views.import_excel_profesores, name='import_excel_profesores'),
     re_path(r'^perfil/actualizar/$', views.actualizar_perfil_usuario),
     #re_path('export-excel-profesores/', views.export_excel_profesores, name='export_excel_profesores'),
+    re_path('listar-estudiantes', views.listar_estudiantes),
+    re_path(r'api/estudiante/(?P<id>[0-9]+)', views.estudiante_detail, name='estudiante_detail'),
+    re_path(r'api/register-estudiante', views.register_estudiante, name='register_estudiante'),
+    re_path(r'api/estudiantes-por-grupo/(?P<grupo>[\w-]+)', views.estudiantes_por_grupo, name='estudiantes_por_grupo'),
+    re_path(r'api/grupos', views.get_grupos, name='get_grupos'),
+    re_path(r'api/import-excel-estudiantes', views.import_excel_estudiantes, name='import_excel_estudiantes'),
+    re_path(r'api/export-excel-estudiantes', views.export_excel_estudiantes, name='export_excel_estudiantes'),
 ]

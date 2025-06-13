@@ -28,3 +28,70 @@ class Profesor(AbstractBaseUser):
 
     def __str__(self):
         return f"{self.nombre} ({self.cedula})"
+    
+# Agregar al final de tu models.py existente
+
+class Estudiante(models.Model):
+    # Opciones para el estado del estudiante
+    ESTADO_CHOICES = [
+        ('prematricula', 'Prematriculado'),
+        ('matriculado', 'Matriculado'),
+    ]
+    
+    documento = models.CharField(max_length=20, unique=True, verbose_name="Documento de identidad")
+    nombre = models.CharField(max_length=100, verbose_name="Nombre completo")
+    correo = models.EmailField(verbose_name="Correo electrónico")
+    grupo = models.CharField(max_length=50, verbose_name="Grupo")
+    estado = models.CharField(
+        max_length=15, 
+        choices=ESTADO_CHOICES, 
+        default='prematricula',
+        verbose_name="Estado de matrícula"
+    )
+
+    class Meta:
+        verbose_name = "Estudiante"
+        verbose_name_plural = "Estudiantes"
+        ordering = ['grupo', 'nombre']
+        db_table = 'estudiantes'  # Nombre específico para la tabla en MySQL
+
+    def __str__(self):
+        return f"{self.nombre} - {self.grupo} ({self.documento}) - {self.get_estado_display()}"
+
+    def clean(self):
+        """Validaciones personalizadas"""
+        from django.core.exceptions import ValidationError
+        
+        # Limpiar y validar documento
+        if self.documento:
+            self.documento = ''.join(filter(str.isdigit, self.documento))
+            if len(self.documento) < 6:
+                raise ValidationError({'documento': 'El documento debe tener al menos 6 dígitos'})
+        
+        # Normalizar correo
+        if self.correo:
+            self.correo = self.correo.lower().strip()
+        
+        # Normalizar grupo
+        if self.grupo:
+            self.grupo = self.grupo.strip().upper()
+
+    def save(self, *args, **kwargs):
+        """Override save para aplicar validaciones"""
+        self.full_clean()
+        super().save(*args, **kwargs)
+    
+    @property
+    def estado_display(self):
+        """Propiedad para obtener el estado en formato legible"""
+        return self.get_estado_display()
+    
+    @property
+    def is_matriculado(self):
+        """Verificar si el estudiante está matriculado"""
+        return self.estado == 'matriculado'
+    
+    @property
+    def is_prematriculado(self):
+        """Verificar si el estudiante está prematriculado"""
+        return self.estado == 'prematricula'
