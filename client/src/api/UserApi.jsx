@@ -143,26 +143,32 @@ export const exportProfesoresExcel = async () => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.get(`${API_URL}/export-excel-profesores/`, {
+    const response = await axios.get(`${API_URL}/api/export-excel-profesores/`, {
       headers: {
         Authorization: `Token ${token}`,
       },
       responseType: 'blob', // Importante para archivos
     });
     
+    // Obtener nombre del archivo desde headers si el backend lo envía
+    const contentDisposition = response.headers['content-disposition'];
+    const filename = contentDisposition 
+      ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
+      : `profesores_${new Date().toISOString().split('T')[0]}.xlsx`;
+    
     // Crear URL para descargar el archivo
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `profesores_${new Date().toISOString().split('T')[0]}.xlsx`);
+    link.setAttribute('download', filename);
     document.body.appendChild(link);
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
     
-    return true;
+    return { success: true, message: 'Archivo descargado exitosamente' };
   } catch (error) {
-    console.error("Error al exportar Excel:", error);
+    console.error("Error al exportar Excel de profesores:", error);
     throw error;
   }
 };
@@ -381,6 +387,24 @@ export const getGrupos = async () => {
     return response.data;
   } catch (error) {
     console.error("Error al obtener grupos:", error);
+    throw error;
+  }
+};
+
+// En UserApi.js
+export const getCurrentUser = async () => {
+  const token = localStorage.getItem("token");
+  if (!token) throw new Error("Token no encontrado");
+
+  try {
+    const response = await axios.get(`${API_URL}/api/perfil/`, {
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error al obtener perfil actual:", error);
     throw error;
   }
 };

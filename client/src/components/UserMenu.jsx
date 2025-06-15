@@ -7,6 +7,8 @@ import {
   FaSignInAlt,
   FaUserTie,
   FaInfoCircle,
+  FaGlasses,
+  FaUserGraduate,
 } from "react-icons/fa";
 
 const UserMenu = () => {
@@ -20,7 +22,7 @@ const UserMenu = () => {
       <div className="flex items-center gap-2">
         <button
           onClick={toggleMenu}
-          className="flex items-center bg-lime-500 text-white px-3 py-1 rounded-full hover:bg-neutral-700 transition"
+          className="flex items-center bg-indigo-300 text-white px-3 py-1 rounded-full hover:bg-slate-500 transition"
         >
           <span className="mr-2">
             <FaBars color="#022c22" />
@@ -32,14 +34,14 @@ const UserMenu = () => {
       </div>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-64 bg-emerald-900 text-white border border-emerald-950 rounded-md shadow-lg z-10">
+        <div className="absolute right-0 mt-2 w-64 bg-slate-500 text-black border border-black rounded-md shadow-lg z-10">
           <ul>
             {/* Si no hay usuario logueado */}
             {!user && (
-              <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+              <li className="p-3 hover:bg-slate-600 cursor-pointer">
                 <Link
                   to="/login"
-                  className="flex items-center gap-1 hover:text-yellow-300 transition"
+                  className="flex items-center gap-1 hover:text-emerald-400 transition"
                 >
                   <FaSignInAlt color="#91ff00" />
                   <span className="select-none">Iniciar Sesión</span>
@@ -49,43 +51,55 @@ const UserMenu = () => {
             {user && (
               <>
                 {!user.is_staff && (
-                  <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+                  <li className="p-3 hover:bg-slate-600 cursor-pointer">
                     <Link
                       to="/teacher-menu"
-                      className="flex items-center gap-1 hover:text-yellow-300 transition"
+                      className="flex items-center gap-1 hover:text-white transition"
                     >
-                      <FaBars color="#91ff00" /> Menú
+                      <FaGlasses color="white" /> Menú
                     </Link>
                   </li>
                 )}
+                {/*Lista Estudiantes*/}
+                <li
+                  className="p-3 hover:bg-slate-600 cursor-pointer flex items-center gap-2 hover:text-white transition"
+                >
+                  <Link
+                    to="/student-list" // Enlace al TeacherList
+                    className="flex items-center gap-1 hover:text-white transition"
+                  >
+                    <FaUserGraduate color="white" />
+                    <span className="select-none">Lista Estudiantes</span>
+                  </Link>
+                </li>
                 {user.is_staff && (
-                  <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+                  <li className="p-3 hover:bg-slate-600 cursor-pointer">
                     <Link
                       to="/teacher-list" // Enlace al TeacherList
-                      className="flex items-center gap-1 hover:text-yellow-300 transition"
+                      className="flex items-center gap-1 hover:text-white transition"
                     >
-                      <FaInfoCircle color="#91ff00" />
+                      <FaGlasses color="white" />
                       <span className="select-none">Lista de Profesores</span>
                     </Link>
                   </li>
                 )}
                 {user.is_staff && (
-                  <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+                  <li className="p-3 hover:bg-slate-600 cursor-pointer">
                     <Link
                       to="/admin-menu" // Enlace al TeacherList
-                      className="flex items-center gap-1 hover:text-yellow-300 transition"
+                      className="flex items-center gap-1 hover:text-white transition"
                     >
-                      <FaBars color="#91ff00" />
+                      <FaBars color="white" />
                       <span className="select-none">Menu Administrador</span>
                     </Link>
                   </li>
                 )}
-                <li className="p-3 hover:bg-emerald-950 cursor-pointer">
+                <li className="p-3 hover:bg-slate-600 cursor-pointer">
                   <Link
                     to="/editar-perfil"
-                    className="flex items-center gap-1 hover:text-yellow-300 transition"
+                    className="flex items-center gap-1 hover:text-white transition"
                   >
-                    <FaHighlighter color="#91ff00" />
+                    <FaHighlighter color="white" />
                     <span className="select-none">Editar Perfil</span>
                   </Link>
                 </li>
@@ -93,15 +107,16 @@ const UserMenu = () => {
                 {/* Cerrar sesión */}
                 <li
                   onClick={() => logout()}
-                  className="p-3 hover:bg-emerald-950 cursor-pointer flex items-center gap-2 hover:text-red-400 transition"
+                  className="p-3 hover:bg-slate-600 cursor-pointer flex items-center gap-2 hover:text-red-400 transition"
                 >
                   <Link
                     to="/information" // Enlace al TeacherList
-                    className="flex items-center gap-1 hover:text-yellow-300 transition"
+                    className="flex items-center gap-1 hover:text-red-400 transition"
                   >
-                    <FaSignInAlt color="white" />
+                    <FaSignInAlt color="red" />
                     <span className="select-none">Cerrar sesión</span>
                   </Link>
+
                 </li>
               </>
             )}

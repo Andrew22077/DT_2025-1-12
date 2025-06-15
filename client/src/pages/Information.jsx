@@ -1,8 +1,9 @@
 import { useState } from "react";
 import campusBackground from "../assets/campus-unbosque.jpg";
 import logoUnbosque from "../assets/Logo_Unbosque.png";
-import logoGAC from "../assets/logo-GAC.jpg";
+import logoGAC from "../assets/logo-GAC.png";
 import logoPMI from "../assets/logo-PMI.png";
+import logoGP from "../assets/logo-GP.png";
 
 export function Information() {
   const [activePanel, setActivePanel] = useState(null);
@@ -13,17 +14,18 @@ export function Information() {
 
   return (
     <div
-      className="min-h-screen  flex items-center justify-center bg-cover bg-center bg-fixed p-4"
-      style={{ backgroundImage: `url(${campusBackground})` }}
+      className="min-h-screen flex items-center justify-center bg-cover bg-center bg-fixed p-4 bg-slate-900"
     >
-      <div className="bg-white border-2 items-start border-orange-500 rounded-2xl shadow-xl p-8 max-w-6xl w-full mt-5">
-        <h2 className="text-xl font-semibold text-green-700 mt-4 mb-2 text-center">
+      <div className="bg-gray-300 border-2 items-start border-b-cyan-700 rounded-2xl shadow-xl p-8 max-w-6xl w-full mt-5">
+        <h2 className="text-xl font-semibold text-slate-900 mt-4 mb-2 text-center">
           🎯 Propósito de la Plataforma
         </h2>
         <p className="text-center">
           Esta herramienta permite evaluar de forma automatizada las
           competencias adquiridas por los estudiantes, apoyando la mejora
           continua y la alineación con estándares de acreditación internacional.
+
+
         </p>
         <br />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -36,7 +38,7 @@ export function Information() {
             />
             {activePanel === "gac" && (
               <div className="text-gray-700 mt-4 text-left">
-                <h2 className="text-xl font-semibold text-green-700 mb-2">
+                <h2 className="text-xl font-semibold text-slate-900 mb-2">
                   📌 ¿Qué es el GAC?
                 </h2>
                 <p>
@@ -54,12 +56,12 @@ export function Information() {
             <img
               src={logoPMI}
               alt="Project Management Institute"
-              className="w-32 h-auto mx-auto cursor-pointer hover:scale-110 transition-transform duration-300"
+              className="w-60 h-auto mx-auto cursor-pointer hover:scale-110 transition-transform duration-300"
               onClick={() => togglePanel("pmi")}
             />
             {activePanel === "pmi" && (
               <div className="text-gray-700 mt-4 text-left">
-                <h2 className="text-xl font-semibold text-green-700 mb-2">
+                <h2 className="text-xl font-semibold text-slate-900 mb-2">
                   📌 ¿Qué es el PMI?
                 </h2>
                 <p>
@@ -81,7 +83,7 @@ export function Information() {
             />
             {activePanel === "unbosque" && (
               <div className="text-gray-700 mt-4 text-left">
-                <h2 className="text-xl font-semibold text-green-700 mb-2">
+                <h2 className="text-xl font-semibold text-slate-900 mb-2">
                   🏛️ Universidad El Bosque
                 </h2>
                 <p>
@@ -95,17 +97,15 @@ export function Information() {
             )}
           </div>
           <div className="text-center">
-            <div
-              className="w-32 h-32 mx-auto bg-orange-100 rounded-xl flex items-center justify-center cursor-pointer hover:bg-orange-200 transition"
+            <img
+              src={logoGP}
+              alt="Gerencias"
+              className="w-60 h-auto mx-auto cursor-pointer hover:scale-110 transition-transform duration-300"
               onClick={() => togglePanel("gerencias")}
-            >
-              <span className="text-lg font-semibold text-green-800 text-center">
-                🎓 Gerencias
-              </span>
-            </div>
+            />
             {activePanel === "gerencias" && (
               <div className="text-gray-700 mt-4 text-left">
-                <h2 className="text-xl font-semibold text-green-700 mb-2">
+                <h2 className="text-xl font-semibold text-slate-900 mb-2">
                   🎓 Especialización y Maestría en Gerencia de Proyectos
                 </h2>
                 <p>

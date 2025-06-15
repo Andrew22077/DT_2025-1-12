@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { actualizarPerfilUsuario } from "../api/UserApi";
+import React, { useState, useEffect } from "react";
+import { actualizarPerfilUsuario, getCurrentUser } from "../api/UserApi";
 
 // Definir colores desde los proporcionados
 const colors = {
@@ -21,8 +21,54 @@ const EditarPerfil = () => {
     correo: "",
     contrasenia: "",
   });
+  
+  const [userInfo, setUserInfo] = useState({
+    cedula: "",
+    nombre: "",
+    correo: "",
+    is_active: true,
+    is_staff: false,
+    fecha_registro: "",
+  });
+  
+  const [loading, setLoading] = useState(true);
   const [mensaje, setMensaje] = useState("");
   const [error, setError] = useState("");
+
+  // Obtener información del usuario actual
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        setLoading(true);
+        const userData = await getCurrentUser();
+        
+        if (userData) {
+          setUserInfo({
+            cedula: userData.cedula || "No disponible",
+            nombre: userData.nombre || "",
+            correo: userData.correo || "",
+            is_active: userData.is_active !== undefined ? userData.is_active : true,
+            is_staff: userData.is_staff || false,
+            fecha_registro: userData.created_at || userData.date_joined || new Date().toISOString(),
+          });
+
+          setFormData({
+            nombre: userData.nombre || "",
+            correo: userData.correo || "",
+            contrasenia: "",
+          });
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        console.error("Error al obtener datos del usuario:", err);
+        setError("Error al cargar los datos del perfil. Verifica tu sesión.");
+        setLoading(false);
+      }
+    };
+
+    fetchCurrentUser();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -40,14 +86,51 @@ const EditarPerfil = () => {
     try {
       const data = { ...formData };
       if (data.contrasenia === "") delete data.contrasenia;
+      
+      const updatedUser = await actualizarPerfilUsuario(data);
+      
+      // Recargar los datos del usuario después de actualizar
+      const refreshedUser = await getCurrentUser();
+      setUserInfo({
+        cedula: refreshedUser.cedula || "No disponible",
+        nombre: refreshedUser.nombre || "",
+        correo: refreshedUser.correo || "",
+        is_active: refreshedUser.is_active !== undefined ? refreshedUser.is_active : true,
+        is_staff: refreshedUser.is_staff || false,
+        fecha_registro: refreshedUser.created_at || refreshedUser.date_joined || new Date().toISOString(),
+      });
 
-      await actualizarPerfilUsuario(data);
       setMensaje("Perfil actualizado con éxito.");
+      
+      // Limpiar contraseña del formulario
+      setFormData(prev => ({ ...prev, contrasenia: "" }));
+      
     } catch (err) {
       setError("Error al actualizar perfil. Verifica los campos.");
       console.error(err);
     }
   };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return "No disponible";
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div 
+        className="min-h-screen p-6 flex items-center justify-center"
+        style={{ backgroundColor: colors.bg100 }}
+      >
+        <p style={{ color: colors.primary300 }}>Cargando información del perfil...</p>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -67,24 +150,41 @@ const EditarPerfil = () => {
               border: `4px solid ${colors.primary200}`
             }}
           >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              className="w-12 h-12"
-              style={{ color: colors.primary300 }}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+            <img
+              src={`https://www.gravatar.com/avatar/${userInfo.correo}?d=identicon&s=96`}
+              alt={userInfo.nombre}
+              className="w-20 h-20 rounded-full object-cover"
+            />
           </div>
           
           <h2 
-            className="text-xl font-semibold mb-4"
+            className="text-xl font-semibold mb-2 text-center"
             style={{ color: colors.bg100 }}
           >
-            Editar Perfil
+            {userInfo.nombre}
           </h2>
+
+          <div className="mb-4 text-center">
+            <span 
+              className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                userInfo.is_staff 
+                  ? 'bg-yellow-500 text-white' 
+                  : 'bg-blue-500 text-white'
+              }`}
+            >
+              {userInfo.is_staff ? 'Administrador' : 'Profesor'}
+            </span>
+            
+            <span 
+              className={`inline-block ml-2 px-3 py-1 rounded-full text-xs font-semibold ${
+                userInfo.is_active 
+                  ? 'bg-green-600 text-white' 
+                  : 'bg-red-500 text-white'
+              }`}
+            >
+              {userInfo.is_active ? 'Activo' : 'Inactivo'}
+            </span>
+          </div>
           
           <form onSubmit={handleSubmit} className="w-full">
             {mensaje && (
@@ -179,14 +279,14 @@ const EditarPerfil = () => {
 
             <button
               type="submit"
-                className="text-amber-50 mt-1 block w-full px-3 py-2 border border-green-300 rounded-md bg-green-700 hover:bg-emerald-800 focus:outline-none focus:ring-orange-400 focus:border-orange-400"
+              className="text-amber-50 mt-1 block w-full px-3 py-2 border border-green-300 rounded-md bg-green-700 hover:bg-emerald-800 focus:outline-none focus:ring-orange-400 focus:border-orange-400 transition-colors"
             >
               Guardar Cambios
             </button>
           </form>
         </div>
 
-        {/* Lado Derecho - Información de perfil */}
+        {/* Lado Derecho - Información detallada del perfil */}
         <div 
           className="w-2/3 p-8"
           style={{ backgroundColor: colors.bg200 }}
@@ -195,34 +295,96 @@ const EditarPerfil = () => {
             className="text-2xl font-bold mb-6"
             style={{ color: colors.primary300 }}
           >
-            Notificaciones
+            Información del Perfil
           </h1>
           
+          {/* Información Personal */}
           <div 
-            className="rounded-lg p-6 shadow-md"
+            className="rounded-lg p-6 shadow-md mb-6"
             style={{ backgroundColor: colors.bg100 }}
           >
-            <div className="mb-6">
-
-              <ul 
-                className="list-disc pl-5 space-y-2"
-                style={{ color: colors.text200 }}
-              >
-
-              </ul>
-            </div>
+            <h3 className="text-lg font-semibold mb-4" style={{ color: colors.primary300 }}>
+              Datos Personales
+            </h3>
             
-            <div
-              className="p-4 rounded-lg"
-              style={{ backgroundColor: colors.bg200 }}
-            >
-              <p 
-                className="text-sm"
-                style={{ color: colors.text200 }}
-              >
-
-              </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="font-medium" style={{ color: colors.text100 }}>Cédula:</p>
+                <p style={{ color: colors.text200 }}>{userInfo.cedula}</p>
+              </div>
+              <div>
+                <p className="font-medium" style={{ color: colors.text100 }}>Nombre Completo:</p>
+                <p style={{ color: colors.text200 }}>{userInfo.nombre}</p>
+              </div>
+              <div>
+                <p className="font-medium" style={{ color: colors.text100 }}>Correo Electrónico:</p>
+                <p style={{ color: colors.text200 }}>{userInfo.correo}</p>
+              </div>
+              <div>
+                <p className="font-medium" style={{ color: colors.text100 }}>Fecha de Registro:</p>
+                <p style={{ color: colors.text200 }}>{formatDate(userInfo.fecha_registro)}</p>
+              </div>
             </div>
+          </div>
+
+          {/* Estado de la Cuenta */}
+          <div 
+            className="rounded-lg p-6 shadow-md mb-6"
+            style={{ backgroundColor: colors.bg100 }}
+          >
+            <h3 className="text-lg font-semibold mb-4" style={{ color: colors.primary300 }}>
+              Estado de la Cuenta
+            </h3>
+            
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span style={{ color: colors.text100 }}>Estado de la cuenta:</span>
+                <span 
+                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    userInfo.is_active 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-red-100 text-red-800'
+                  }`}
+                >
+                  {userInfo.is_active ? 'Activa' : 'Inactiva'}
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between">
+                <span style={{ color: colors.text100 }}>Permisos de administrador:</span>
+                <span 
+                  className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    userInfo.is_staff 
+                      ? 'bg-yellow-100 text-yellow-800' 
+                      : 'bg-blue-100 text-blue-800'
+                  }`}
+                >
+                  {userInfo.is_staff ? 'Administrador' : 'Usuario estándar'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Información adicional */}
+          <div
+            className="p-4 rounded-lg"
+            style={{ backgroundColor: colors.bg100 }}
+          >
+            <h3 className="text-lg font-semibold mb-3" style={{ color: colors.primary300 }}>
+              Configuración de Perfil
+            </h3>
+            <ul 
+              className="list-disc pl-5 space-y-2"
+              style={{ color: colors.text200 }}
+            >
+              <li>Puedes actualizar tu nombre y correo electrónico en cualquier momento</li>
+              <li>Para cambiar tu contraseña, completa el campo correspondiente</li>
+              <li>Los cambios se guardarán inmediatamente al hacer clic en "Guardar Cambios"</li>
+              <li>Tu avatar se genera automáticamente basado en tu correo electrónico</li>
+              {userInfo.is_staff && (
+                <li className="text-yellow-700 font-medium">Como administrador, tienes acceso completo al sistema</li>
+              )}
+            </ul>
           </div>
         </div>
       </div>

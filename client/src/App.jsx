@@ -13,6 +13,8 @@ import RegisterWrapper from "./pages/RegisterWrapper";
 import EditarPerfil from "./pages/EditProfile";
 import UserMenuPage from "./pages/UserMenuPage";
 import EstudiantesListPage from "./pages/EstudiantesListPage";
+import RegisterStudentPage from './pages/RegisterStudentPage';
+import RegisterStudentWrapper from './pages/RegisterStudentWrapper';
 
 function App() {
   return (
@@ -24,6 +26,8 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />
         <Route path="/information" element={<Information />} />
+        <Route path="/registrar-estudiante" element={<RegisterStudentPage />} />
+        <Route path="/editar-estudiante/:id" element={<RegisterStudentWrapper />} />
         <Route
           path="/teacher-menu"
           element={

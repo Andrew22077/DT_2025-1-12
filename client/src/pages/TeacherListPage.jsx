@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getProfesores } from "../api/UserApi";
 import { useNavigate } from "react-router-dom";
-import ImportExportExcel from "../components/ImportExportExcel"; // Importamos el nuevo componente
+import { default as ImportExportExcel } from "../components/ImportExportExcel";
 
 const TeacherList = () => {
   const [users, setUsers] = useState([]);

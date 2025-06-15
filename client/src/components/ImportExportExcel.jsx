@@ -1,222 +1,189 @@
 import React, { useState } from 'react';
-import { Upload, Download, FileSpreadsheet, AlertCircle, CheckCircle, X, Loader2 } from 'lucide-react';
 import { importExcelProfesores, exportProfesoresExcel } from '../api/UserApi';
 
 const ImportExportExcel = ({ onImportSuccess }) => {
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [file, setFile] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [exportLoading, setExportLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState(''); // 'success', 'error', 'info'
 
-  const handleFileChange = (event) => {
-    const selectedFile = event.target.files[0];
-    if (selectedFile) {
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
       // Validar que sea un archivo Excel
-      const validTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
-      if (validTypes.includes(selectedFile.type) || selectedFile.name.endsWith('.xlsx') || selectedFile.name.endsWith('.xls')) {
-        setFile(selectedFile);
-        setError(null);
+      const validTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel' // .xls
+      ];
+      
+      if (validTypes.includes(file.type) || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        setSelectedFile(file);
+        setMessage('');
       } else {
-        setError('Por favor selecciona un archivo Excel válido (.xlsx o .xls)');
-        setFile(null);
+        setMessage('Por favor selecciona un archivo Excel válido (.xlsx o .xls)');
+        setMessageType('error');
+        setSelectedFile(null);
       }
     }
   };
 
   const handleImport = async () => {
-    if (!file) {
-      setError('Por favor selecciona un archivo');
+    if (!selectedFile) {
+      setMessage('Por favor selecciona un archivo primero');
+      setMessageType('error');
       return;
     }
 
-    setLoading(true);
-    setError(null);
-    setResult(null);
+    setImporting(true);
+    setMessage('');
 
     try {
-      const response = await importExcelProfesores(file);
-      setResult(response);
-      if (onImportSuccess) onImportSuccess();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Error al importar el archivo');
+      const result = await importExcelProfesores(selectedFile);
+      
+      if (result.created > 0) {
+        setMessage(`✅ Importación exitosa: ${result.created} profesores creados de ${result.total_rows} filas procesadas`);
+        setMessageType('success');
+        
+        if (result.errors && result.errors.length > 0) {
+          setMessage(prev => prev + `\n⚠️ Errores encontrados: ${result.errors.slice(0, 3).join(', ')}${result.errors.length > 3 ? '...' : ''}`);
+        }
+        
+        // Limpiar el archivo seleccionado
+        setSelectedFile(null);
+        document.getElementById('file-input-profesores').value = '';
+        
+        // Notificar al componente padre para que recargue la lista
+        if (onImportSuccess) {
+          onImportSuccess();
+        }
+      } else {
+        setMessage(`⚠️ No se crearon profesores. Revisa el formato del archivo.`);
+        setMessageType('error');
+        
+        if (result.errors && result.errors.length > 0) {
+          setMessage(prev => prev + `\nErrores: ${result.errors.slice(0, 5).join(', ')}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error al importar:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+      setMessage(`❌ Error al importar archivo: ${errorMessage}`);
+      setMessageType('error');
     } finally {
-      setLoading(false);
+      setImporting(false);
     }
   };
 
   const handleExport = async () => {
-    setExportLoading(true);
+    setExporting(true);
+    setMessage('Generando archivo Excel...');
+    setMessageType('info');
+
     try {
-      await exportProfesoresExcel();
+      const result = await exportProfesoresExcel();
+      if (result.success) {
+        setMessage('✅ Archivo Excel descargado exitosamente');
+        setMessageType('success');
+      }
     } catch (error) {
       console.error('Error al exportar:', error);
-      alert('Error al exportar el archivo Excel');
+      const errorMessage = error.response?.data?.error || error.message || 'Error desconocido';
+      setMessage(`❌ Error al exportar: ${errorMessage}`);
+      setMessageType('error');
     } finally {
-      setExportLoading(false);
+      setExporting(false);
     }
   };
 
-  const closeModal = () => {
-    setShowImportModal(false);
-    setFile(null);
-    setResult(null);
-    setError(null);
+  const clearMessage = () => {
+    setMessage('');
+    setMessageType('');
   };
 
   return (
-    <>
-      {/* Botones de Importar y Exportar */}
-      <div className="flex justify-center gap-4 mb-6">
-        <button
-          onClick={() => setShowImportModal(true)}
-          className="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700 flex items-center gap-2 transition-colors"
-        >
-          <Upload size={16} />
-          Importar Excel
-        </button>
-        <button
-          onClick={handleExport}
-          disabled={exportLoading}
-          className="bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {exportLoading ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <Download size={16} />
-          )}
-          {exportLoading ? 'Exportando...' : 'Exportar Excel'}
-        </button>
+    <div className="bg-gray-50 p-4 rounded-lg mb-6 border">
+      <h3 className="text-lg font-semibold mb-4 text-gray-800">
+        📊 Importar/Exportar Profesores Excel
+      </h3>
+      
+      <div className="flex flex-wrap gap-4 items-center">
+        {/* Sección de Importar */}
+        <div className="flex items-center gap-2">
+          <input
+            id="file-input-profesores"
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileChange}
+            className="block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+            disabled={importing}
+          />
+          
+          <button
+            onClick={handleImport}
+            disabled={!selectedFile || importing}
+            className={`px-4 py-2 rounded font-medium transition-colors ${
+              !selectedFile || importing
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            {importing ? '⏳ Importando...' : '📥 Importar'}
+          </button>
+        </div>
+
+        {/* Separador */}
+        <div className="hidden sm:block w-px h-8 bg-gray-300"></div>
+
+        {/* Sección de Exportar */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className={`px-4 py-2 rounded font-medium transition-colors ${
+              exporting
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            {exporting ? '⏳ Exportando...' : '📤 Exportar Todo'}
+          </button>
+        </div>
       </div>
 
-      {/* Modal de Importación */}
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-800">Importar Profesores desde Excel</h2>
-              <button
-                onClick={closeModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Seleccionar archivo Excel
-              </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
-                <input
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  id="excel-upload"
-                />
-                <label
-                  htmlFor="excel-upload"
-                  className="cursor-pointer flex flex-col items-center"
-                >
-                  <FileSpreadsheet size={48} className="text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-600">
-                    {file ? file.name : 'Haz clic para seleccionar un archivo Excel'}
-                  </span>
-                  <span className="text-xs text-gray-400 mt-1">
-                    Formatos soportados: .xlsx, .xls
-                  </span>
-                </label>
-              </div>
-            </div>
-
-            {/* Información sobre el formato esperado */}
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-              <h4 className="text-sm font-medium text-blue-800 mb-2">Formato esperado del Excel:</h4>
-              <ul className="text-xs text-blue-700 list-disc list-inside space-y-1">
-                <li><strong>APELLIDOS NOMBRES</strong> (obligatorio)</li>
-                <li><strong>No. DE IDENTIFICACIÓN</strong> (obligatorio)</li>
-                <li>CORREO INSTITUCIONAL (opcional)</li>
-                <li>CORREO PERSONAL (opcional)</li>
-                <li>Celular (opcional)</li>
-              </ul>
-              <p className="text-xs text-blue-600 mt-2">
-                ℹ️ Las demás columnas del Excel serán ignoradas automáticamente
-              </p>
-            </div>
-
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded flex items-start">
-                <AlertCircle size={16} className="mr-2 mt-0.5 flex-shrink-0" />
-                <span className="text-sm">{error}</span>
-              </div>
-            )}
-
-            {result && (
-              <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
-                <div className="flex items-center mb-2">
-                  <CheckCircle size={16} className="mr-2" />
-                  <span className="font-medium">Importación completada</span>
-                </div>
-                <div className="text-sm space-y-1">
-                  <div>✅ Creados: <strong>{result.created}</strong> profesores</div>
-                  <div>🔄 Actualizados: <strong>{result.updated}</strong> profesores</div>
-                  <div>📊 Total procesado: <strong>{result.total_processed || result.created + result.updated}</strong> de <strong>{result.total_rows || 'N/A'}</strong> filas</div>
-                  {result.errors && result.errors.length > 0 && (
-                    <div className="text-red-600">❌ Errores: <strong>{result.errors.length}</strong></div>
-                  )}
-                </div>
-                {result.errors && result.errors.length > 0 && (
-                  <div className="mt-3">
-                    <details className="text-sm">
-                      <summary className="cursor-pointer font-medium text-red-700 hover:text-red-800">
-                        Ver errores ({result.errors.length})
-                      </summary>
-                      <div className="mt-2 max-h-32 overflow-y-auto">
-                        <ul className="list-disc list-inside text-red-600 space-y-1">
-                          {result.errors.map((error, index) => (
-                            <li key={index} className="text-xs">{error}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </details>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={closeModal}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                {result ? 'Cerrar' : 'Cancelar'}
-              </button>
-              {!result && (
-                <button
-                  onClick={handleImport}
-                  disabled={!file || loading}
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin mr-2" />
-                      Importando...
-                    </>
-                  ) : (
-                    <>
-                      <Upload size={16} className="mr-2" />
-                      Importar
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
+      {/* Información del archivo seleccionado */}
+      {selectedFile && (
+        <div className="mt-3 text-sm text-gray-600">
+          <p>📄 Archivo seleccionado: <strong>{selectedFile.name}</strong></p>
+          <p>📏 Tamaño: <strong>{(selectedFile.size / 1024).toFixed(1)} KB</strong></p>
         </div>
       )}
-    </>
+
+      {/* Mensajes de estado */}
+      {message && (
+        <div className={`mt-4 p-3 rounded-md relative ${
+          messageType === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+          messageType === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
+          'bg-blue-100 text-blue-800 border border-blue-200'
+        }`}>
+          <button
+            onClick={clearMessage}
+            className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+          >
+            ×
+          </button>
+          <pre className="whitespace-pre-wrap text-sm font-medium">{message}</pre>
+        </div>
+      )}
+
+      {/* Información de formato esperado */}
+      <div className="mt-4 text-xs text-gray-500">
+        <p><strong>Formato esperado del Excel:</strong></p>
+        <p>• Columnas: CÉDULA, NOMBRE, CORREO, CONTRASEÑA</p>
+        <p>• La primera fila debe contener los encabezados</p>
+        <p>• Formatos soportados: .xlsx, .xls (máximo 5MB)</p>
+      </div>
+    </div>
   );
 };
 

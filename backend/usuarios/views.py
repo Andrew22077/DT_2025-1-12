@@ -130,24 +130,80 @@ def update_profesor_status(request, id):
     serializer = ProfesorSerializer(profesor)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
-# Función para exportar profesores a Excel
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def export_teachers_excel(request):
-    # Obtener todos los profesores
-    teachers = Teacher.objects.all().values()
-    
-    # Crear un DataFrame con los datos
-    df = pd.DataFrame(list(teachers))
-    
-    # Crear una respuesta HTTP con el archivo Excel
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-    response['Content-Disposition'] = 'attachment; filename=teachers.xlsx'
-    
-    # Guardar el DataFrame como Excel
-    df.to_excel(response, index=False)
-    
-    return response
+@permission_classes([IsAuthenticated, IsStaffUser])
+def export_excel_profesores(request):
+    """Exportar profesores a Excel"""
+    try:
+        profesores = Profesor.objects.all().order_by('nombre')
+        
+        # Crear DataFrame con los datos
+        serializer = ProfesorSerializer(profesores, many=True)
+        df = pd.DataFrame(serializer.data)
+        
+        if df.empty:
+            return Response({
+                'error': 'No hay profesores para exportar'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Renombrar columnas para el Excel
+        df = df.rename(columns={
+            'cedula': 'CÉDULA',
+            'nombre': 'NOMBRE',
+            'correo': 'CORREO',
+            'is_active': 'ACTIVO',
+            'is_staff': 'ES ADMIN'
+        })
+        
+        # Convertir valores booleanos a texto legible
+        df['ACTIVO'] = df['ACTIVO'].map({True: 'SÍ', False: 'NO'})
+        df['ES ADMIN'] = df['ES ADMIN'].map({True: 'SÍ', False: 'NO'})
+        
+        # Crear respuesta HTTP
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        filename = f'profesores_{pd.Timestamp.now().strftime("%Y%m%d_%H%M")}.xlsx'
+        response['Content-Disposition'] = f'attachment; filename={filename}'
+        
+        # Crear Excel con información adicional
+        with pd.ExcelWriter(response, engine='openpyxl') as writer:
+            # Información del archivo
+            info_df = pd.DataFrame({
+                'Información': [
+                    'Archivo generado el:',
+                    'Total de profesores:',
+                    'Profesores activos:',
+                    'Profesores administradores:',
+                    'Generado por:'
+                ],
+                'Valor': [
+                    pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
+                    len(df),
+                    len(df[df['ACTIVO'] == 'SÍ']),
+                    len(df[df['ES ADMIN'] == 'SÍ']),
+                    request.user.nombre
+                ]
+            })
+            info_df.to_excel(writer, sheet_name='Profesores', index=False, startrow=0)
+            
+            # Datos principales
+            df.to_excel(writer, sheet_name='Profesores', index=False, startrow=6)
+            
+            # Resumen por estado
+            estado_summary = df.groupby('ACTIVO').size().reset_index(name='CANTIDAD')
+            estado_summary.to_excel(writer, sheet_name='Resumen por Estado', index=False)
+            
+            # Resumen por rol
+            admin_summary = df.groupby('ES ADMIN').size().reset_index(name='CANTIDAD')
+            admin_summary.to_excel(writer, sheet_name='Resumen por Rol', index=False)
+        
+        return response
+        
+    except Exception as e:
+        return Response({
+            'error': f'Error al exportar Excel: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Función para importar profesores desde Excel
 @api_view(['POST'])
@@ -627,4 +683,17 @@ def import_excel_estudiantes(request):
     except Exception as e:
         return Response({
             'error': f'Error inesperado al procesar archivo: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_current_user(request):
+    """Obtener información del usuario autenticado"""
+    try:
+        user = request.user
+        serializer = ProfesorSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({
+            'error': f'Error al obtener perfil: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

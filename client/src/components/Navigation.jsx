@@ -8,7 +8,7 @@ export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <nav className="bg-emerald-950 text-white px-6 py-4 shadow-md">
+    <nav className="bg-gray-700 text-white px-6 py-4 shadow-md">
       <div className="container mx-auto flex justify-between items-center">
         {/* Logo e ícono */}
         <div className="flex items-center space-x-2 text-xl font-bold">
