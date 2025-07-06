@@ -1,31 +1,52 @@
 import React from "react";
-import { FaUserTie, FaUserGraduate, FaCog, FaChartBar } from "react-icons/fa";
-import { FiFileText } from "react-icons/fi";
-import { MdInsertChart } from "react-icons/md";
+import { Link } from "react-router-dom";
 import backgroundImage from "../assets/campus-unbosque.jpg";
 
-const menuItems = [
-  { icon: <FaUserGraduate size={150} />, label: "Estudiantes" },
-  { icon: <FiFileText size={150} />, label: "Informes" },
-  { icon: <FaCog size={150} />, label: "Configuración" },
+import estudiantesImg from "../assets/estudiantes.jpg";
+import informesImg from "../assets/informes.jpg";
+import configuracionImg from "../assets/configuracion.png";
+
+const menuItemsTop = [
+  { label: "Estudiantes", image: estudiantesImg, link: "/student-list" },
+  { label: "Informes", image: informesImg, link: "/informes" },
 ];
 
 export default function TeacherMenu() {
   return (
     <div
-      className="min-h-screen bg-cover bg-center flex items-start justify-center p-8"
+      className="min-h-screen bg-cover bg-center flex items-center justify-center p-8"
       style={{ backgroundImage: `url(${backgroundImage})` }}
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 bg-white/90 p-16 rounded-[40px] border-4 border-[#FFA500] shadow-2xl max-w-[1300px] w-full aspect-square max-h-[80vh]">
-        {menuItems.map((item, index) => (
-          <div
-            key={index}
-            className="flex flex-col items-center justify-center border-2 border-[#FFD580] rounded-3xl p-6 bg-[#FFF4E5] hover:bg-[#FFA500] transition-all"
-          >
-            <div className="text-[#000000]  mb-4">{item.icon}</div>
-            <p className="font-bold text-xl text-[#333]">{item.label}</p>
-          </div>
-        ))}
+      <div className="bg-white/90 p-12 rounded-[40px] border-4 border-[#3399FF] shadow-2xl w-full max-w-[900px]">
+        {/* Parte superior: 2 ítems */}
+        <div className="grid grid-cols-2 gap-6 mb-6">
+          {menuItemsTop.map((item, index) => (
+            <Link
+              key={index}
+              to={item.link}
+              className="flex flex-col items-center justify-center border-2 border-[#99CCFF] rounded-2xl p-6 bg-[#E6F2FF] hover:bg-[#3399FF] transition hover:scale-105 active:scale-95"
+            >
+              <img
+                src={item.image}
+                alt={item.label}
+                className="w-[1500px] h-[200px] object-contain mb-4 rounded-[20px] shadow-lg hover:shadow-2xl transition-shadow duration-300 transform hover:scale-105 active:scale-95"
+              />
+              <p className="text-lg font-bold text-[#003366]">{item.label}</p>
+            </Link>
+          ))}
+        </div>
+
+        <Link
+          to="/editar-perfil"
+          className="block text-center border-2 border-[#99CCFF] rounded-2xl p-6 bg-[#E6F2FF] hover:bg-[#3399FF] transition hover:scale-105 active:scale-95"
+        >
+          <img
+            src={configuracionImg}
+            alt="Configuración"
+            className="w-[300px] h-[200px] mx-auto object-contain mb-4 rounded-[20px] shadow-lg hover:shadow-2xl transition-shadow duration-300 transform hover:scale-105 active:scale-95"
+          />
+          <p className="text-xl font-bold text-[#003366]">Configuración</p>
+        </Link>
       </div>
     </div>
   );
