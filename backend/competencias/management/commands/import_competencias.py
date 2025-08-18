@@ -1,7 +1,7 @@
 import pandas as pd
 from django.core.management.base import BaseCommand
 from competencias.models import GAC, RAC, Materia
-
+from usuarios.models import Profesor
 class Command(BaseCommand):
     help = "Importa datos de competencias desde Excel"
 
@@ -10,7 +10,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         excel_path = kwargs["excel_path"]
+        df = pd.read_excel(excel_path)
 
+        
         # Leer Excel
         df = pd.read_excel(excel_path)
         print("Columnas disponibles en el DataFrame:", df.columns.tolist())
@@ -62,15 +64,25 @@ class Command(BaseCommand):
                 "MATERIA RELACIONADA CON EL RAC.3",
             ]
 
-            for col in materia_cols:
-                if col in row and pd.notna(row[col]):
-                    materia_nombre = str(row[col]).strip()
+        for col in materia_cols:
+            if col in row and pd.notna(row[col]):
+                materia_nombre = str(row[col]).strip()
 
-                    materia, created_materia = Materia.objects.get_or_create(
+                materia, created_materia = Materia.objects.get_or_create(
                         nombre=materia_nombre,
                         defaults={"descripcion": f"Materia relacionada con RAC {rac.numero}"}
-                    )
+                )
 
                     # Relación Materia ↔ RAC
-                    materia.racs.add(rac)
+                materia.racs.add(rac)
+        for _, row in df.iterrows():
+            try:
+                profesor = Profesor.objects.get(cedula=row["IDENTIFICACIÓN"])
+                materia = Materia.objects.get(nombre=row["MATERIA"].strip())
+                materia.profesores.add(profesor)
+                print(f"✅ Relación creada: {profesor.nombre} -> {materia.nombre}")
+            except Profesor.DoesNotExist:
+                print(f"❌ Profesor con cédula {row['IDENTIFICACIÓN']} no existe")
+            except Materia.DoesNotExist:
+                print(f"❌ Materia {row['MATERIA']} no existe")
         self.stdout.write(self.style.SUCCESS("✅ Importación completada"))
