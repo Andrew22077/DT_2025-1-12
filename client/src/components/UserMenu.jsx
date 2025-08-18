@@ -72,6 +72,18 @@ const UserMenu = () => {
                     <span className="select-none">Lista Estudiantes</span>
                   </Link>
                 </li>
+                {/*Evaluación de Estudiantes*/}
+                <li
+                  className="p-3 hover:bg-slate-600 cursor-pointer flex items-center gap-2 hover:text-white transition"
+                >
+                  <Link
+                    to="/evaluacion-estudiantes"
+                    className="flex items-center gap-1 hover:text-white transition"
+                  >
+                    <FaUserGraduate color="white" />
+                    <span className="select-none">Evaluar Estudiantes</span>
+                  </Link>
+                </li>
                 {user.is_staff && (
                   <li className="p-3 hover:bg-slate-600 cursor-pointer">
                     <Link

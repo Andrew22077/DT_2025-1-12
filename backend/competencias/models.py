@@ -1,4 +1,6 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
 
 # Create your models here.
 from django.db import models
@@ -11,6 +13,11 @@ class GAC(models.Model):
     descripcion = models.TextField()
     numero = models.IntegerField(unique=True)
 
+    class Meta:
+        verbose_name = "GAC"
+        verbose_name_plural = "GACs"
+        ordering = ['numero']
+
     def __str__(self):
         return f"GAC {self.numero}: {self.descripcion[:50]}"
 
@@ -22,6 +29,11 @@ class RAC(models.Model):
     descripcion = models.TextField()
     numero = models.IntegerField(unique=True)
     gacs = models.ManyToManyField("GAC", related_name="racs")
+
+    class Meta:
+        verbose_name = "RAC"
+        verbose_name_plural = "RACs"
+        ordering = ['numero']
 
     def __str__(self):
         return f"RAC {self.numero}: {self.descripcion[:50]}"
@@ -38,6 +50,11 @@ class Materia(models.Model):
     )
     racs = models.ManyToManyField("RAC", related_name="materias")
 
+    class Meta:
+        verbose_name = "Materia"
+        verbose_name_plural = "Materias"
+        ordering = ['nombre']
+
     def __str__(self):
         return self.nombre
 
@@ -45,16 +62,79 @@ class Materia(models.Model):
 # Evaluación
 # -----------------------
 class Evaluacion(models.Model):
-    rac = models.ForeignKey(RAC, on_delete=models.CASCADE, related_name="evaluaciones")
+    rac = models.ForeignKey(
+        RAC, 
+        on_delete=models.CASCADE, 
+        related_name="evaluaciones",
+        verbose_name="RAC evaluado"
+    )
     estudiante = models.ForeignKey(
-        Estudiante, on_delete=models.CASCADE, related_name="evaluaciones"
+        Estudiante, 
+        on_delete=models.CASCADE, 
+        related_name="evaluaciones",
+        verbose_name="Estudiante evaluado"
     )
     profesor = models.ForeignKey(
-        Profesor, on_delete=models.CASCADE, related_name="evaluaciones"
+        Profesor, 
+        on_delete=models.CASCADE, 
+        related_name="evaluaciones",
+        verbose_name="Profesor evaluador"
     )
-    puntaje = models.DecimalField(max_digits=5, decimal_places=2)
+    puntaje = models.DecimalField(
+        max_digits=3, 
+        decimal_places=1,
+        validators=[
+            MinValueValidator(0.0, message="El puntaje mínimo es 0.0"),
+            MaxValueValidator(5.0, message="El puntaje máximo es 5.0")
+        ],
+        verbose_name="Puntaje de evaluación"
+    )
+    fecha = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de evaluación")
+    fecha_modificacion = models.DateTimeField(auto_now=True, verbose_name="Última modificación")
 
-    fecha = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        verbose_name = "Evaluación"
+        verbose_name_plural = "Evaluaciones"
+        ordering = ['-fecha']
+        # Índice compuesto para búsquedas eficientes
+        indexes = [
+            models.Index(fields=['estudiante', 'rac']),
+            models.Index(fields=['profesor', 'estudiante']),
+            models.Index(fields=['fecha']),
+        ]
+        # Restricción única: un profesor solo puede evaluar un estudiante en un RAC específico
+        unique_together = ['estudiante', 'rac', 'profesor']
 
     def __str__(self):
-        return f"Eval {self.estudiante.nombre} - {self.rac.numero} ({self.puntaje})"
+        return f"Eval {self.estudiante.nombre} - RAC {self.rac.numero} ({self.puntaje}) - {self.profesor.nombre}"
+
+    def clean(self):
+        """Validaciones personalizadas del modelo"""
+        super().clean()
+        
+        # Validar que el estudiante esté matriculado
+        if self.estudiante and self.estudiante.estado != 'matriculado':
+            raise ValidationError({
+                'estudiante': 'Solo se pueden evaluar estudiantes matriculados'
+            })
+        
+        # Validar que el puntaje esté en el rango correcto
+        if self.puntaje and (self.puntaje < 0.0 or self.puntaje > 5.0):
+            raise ValidationError({
+                'puntaje': 'El puntaje debe estar entre 0.0 y 5.0'
+            })
+
+    def save(self, *args, **kwargs):
+        """Override save para aplicar validaciones"""
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    @property
+    def puntaje_formateado(self):
+        """Retorna el puntaje formateado como string"""
+        return f"{self.puntaje:.1f}"
+
+    @property
+    def es_aprobado(self):
+        """Determina si la evaluación está aprobada (puntaje >= 3.0)"""
+        return self.puntaje >= 3.0

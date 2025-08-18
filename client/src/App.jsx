@@ -15,6 +15,7 @@ import UserMenuPage from "./pages/UserMenuPage";
 import EstudiantesListPage from "./pages/EstudiantesListPage";
 import RegisterStudentPage from "./pages/RegisterStudentPage";
 import RegisterStudentWrapper from "./pages/RegisterStudentWrapper";
+import EvaluacionEstudiantesPage from "./pages/EvaluacionEstudiantesPage";
 
 function App() {
   return (
@@ -60,6 +61,14 @@ function App() {
           element={
             <ProtectedRoute requireAdmin={true}>
               <EstudiantesListPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/evaluacion-estudiantes"
+          element={
+            <ProtectedRoute>
+              <EvaluacionEstudiantesPage />
             </ProtectedRoute>
           }
         />

@@ -64,8 +64,21 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      return {
+        Authorization: `Token ${token}`,
+        'Content-Type': 'application/json',
+      };
+    }
+    return {
+      'Content-Type': 'application/json',
+    };
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, getAuthHeaders }}>
       {children}
     </AuthContext.Provider>
   );

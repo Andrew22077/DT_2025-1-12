@@ -15,7 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, re_path
+from django.urls import path, re_path, include
 from usuarios import views
 urlpatterns = [
     path('admin/', admin.site.urls),  # Ruta para el admin
@@ -36,4 +36,5 @@ urlpatterns = [
     re_path(r'api/import-excel-estudiantes', views.import_excel_estudiantes, name='import_excel_estudiantes'),
     re_path(r'api/export-excel-estudiantes', views.export_excel_estudiantes, name='export_excel_estudiantes'),
     re_path(r'api/perfil', views.get_current_user, name='get_current_user'),
+    path('competencias/', include('competencias.urls')),  # Incluir URLs de competencias
 ]
