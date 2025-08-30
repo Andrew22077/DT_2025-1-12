@@ -23,6 +23,11 @@ const menuItems = [
     link: "/informes",
   },
   {
+    image: estudiantesImg,
+    label: "Resultados",
+    link: "/resultados-estudiantes",
+  },
+  {
     image: configuracionImg,
     label: "Configuración",
     link: "/editar-perfil",
@@ -35,7 +40,7 @@ export default function MenuAdmin() {
       className="min-h-screen bg-cover bg-center flex items-start justify-center p-8"
       style={{ backgroundImage: `url(${backgroundImage})` }}
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-10 bg-white/90 p-16 rounded-[40px] border-4 border-[#3399FF] shadow-2xl max-w-[1000px] w-full aspect-square max-h-[80vh]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 bg-white/90 p-16 rounded-[40px] border-4 border-[#3399FF] shadow-2xl max-w-[1200px] w-full aspect-square max-h-[80vh]">
         {menuItems.map((item, index) => (
           <Link
             key={index}

@@ -80,12 +80,13 @@ class Evaluacion(models.Model):
         related_name="evaluaciones",
         verbose_name="Profesor evaluador"
     )
-    puntaje = models.DecimalField(
-        max_digits=3, 
-        decimal_places=1,
-        validators=[
-            MinValueValidator(0.0, message="El puntaje mínimo es 0.0"),
-            MaxValueValidator(5.0, message="El puntaje máximo es 5.0")
+    puntaje = models.IntegerField(
+        choices=[
+            (1, '1 - Insuficiente'),
+            (2, '2 - Básico'),
+            (3, '3 - Satisfactorio'),
+            (4, '4 - Bueno'),
+            (5, '5 - Excelente')
         ],
         verbose_name="Puntaje de evaluación"
     )
@@ -118,10 +119,10 @@ class Evaluacion(models.Model):
                 'estudiante': 'Solo se pueden evaluar estudiantes matriculados'
             })
         
-        # Validar que el puntaje esté en el rango correcto
-        if self.puntaje and (self.puntaje < 0.0 or self.puntaje > 5.0):
+        # Validar que el puntaje esté en el rango correcto (1-5)
+        if self.puntaje and (self.puntaje < 1 or self.puntaje > 5):
             raise ValidationError({
-                'puntaje': 'El puntaje debe estar entre 0.0 y 5.0'
+                'puntaje': 'El puntaje debe estar entre 1 y 5'
             })
 
     def save(self, *args, **kwargs):
@@ -132,9 +133,9 @@ class Evaluacion(models.Model):
     @property
     def puntaje_formateado(self):
         """Retorna el puntaje formateado como string"""
-        return f"{self.puntaje:.1f}"
+        return f"{self.puntaje}"
 
     @property
     def es_aprobado(self):
-        """Determina si la evaluación está aprobada (puntaje >= 3.0)"""
-        return self.puntaje >= 3.0
+        """Determina si la evaluación está aprobada (puntaje >= 3)"""
+        return self.puntaje >= 3

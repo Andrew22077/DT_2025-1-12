@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useEvaluacionApi } from '../api/EvaluacionApi';
 import { useAuth } from '../api/Auth';
-import { FaUserGraduate, FaSave, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
+import { FaUserGraduate, FaSave, FaCheck, FaExclamationTriangle, FaRandom } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 
 const EvaluacionEstudiantesPage = () => {
@@ -9,7 +9,7 @@ const EvaluacionEstudiantesPage = () => {
   const evaluacionApi = useEvaluacionApi();
   
   const [estudiantes, setEstudiantes] = useState([]);
-  const [racs, setRacs] = useState([]);
+  const [racsPorGac, setRacsPorGac] = useState({});
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
   const [evaluaciones, setEvaluaciones] = useState({});
   const [loading, setLoading] = useState(false);
@@ -24,16 +24,18 @@ const EvaluacionEstudiantesPage = () => {
       setLoading(true);
       const [estudiantesData, racsData] = await Promise.all([
         evaluacionApi.obtenerEstudiantes(),
-        evaluacionApi.obtenerRACs()
+        evaluacionApi.obtenerRACsAleatoriosPorGAC()
       ]);
       
       setEstudiantes(estudiantesData);
-      setRacs(racsData);
+      setRacsPorGac(racsData.racs_por_gac);
       
       // Inicializar evaluaciones con valores por defecto
       const evaluacionesIniciales = {};
-      racsData.forEach(rac => {
-        evaluacionesIniciales[rac.id] = '';
+      Object.values(racsData.racs_por_gac).forEach(racsGac => {
+        racsGac.forEach(rac => {
+          evaluacionesIniciales[rac.id] = '';
+        });
       });
       setEvaluaciones(evaluacionesIniciales);
       
@@ -60,9 +62,11 @@ const EvaluacionEstudiantesPage = () => {
       
       // Crear objeto de evaluaciones con valores existentes o vacíos
       const nuevasEvaluaciones = {};
-      racs.forEach(rac => {
-        const evaluacionExistente = evaluacionesExistentes.find(e => e.rac_id === rac.id);
-        nuevasEvaluaciones[rac.id] = evaluacionExistente ? evaluacionExistente.puntaje.toString() : '';
+      Object.values(racsPorGac).forEach(racsGac => {
+        racsGac.forEach(rac => {
+          const evaluacionExistente = evaluacionesExistentes.find(e => e.rac_id === rac.id);
+          nuevasEvaluaciones[rac.id] = evaluacionExistente ? evaluacionExistente.puntaje.toString() : '';
+        });
       });
       
       setEvaluaciones(nuevasEvaluaciones);
@@ -72,9 +76,9 @@ const EvaluacionEstudiantesPage = () => {
   };
 
   const handlePuntajeChange = (racId, valor) => {
-    // Validar que el valor esté entre 0.0 y 5.0
-    const numValor = parseFloat(valor);
-    if (valor === '' || (numValor >= 0.0 && numValor <= 5.0)) {
+    // Validar que el valor esté entre 1 y 5
+    const numValor = parseInt(valor);
+    if (valor === '' || (numValor >= 1 && numValor <= 5)) {
       setEvaluaciones(prev => ({
         ...prev,
         [racId]: valor
@@ -98,10 +102,17 @@ const EvaluacionEstudiantesPage = () => {
       setGuardando(true);
       
       // Preparar datos para envío masivo
-      const evaluacionesParaGuardar = racs.map(rac => ({
-        rac_id: rac.id,
-        puntaje: parseFloat(evaluaciones[rac.id])
-      }));
+      const evaluacionesParaGuardar = [];
+      Object.values(racsPorGac).forEach(racsGac => {
+        racsGac.forEach(rac => {
+          if (evaluaciones[rac.id]) {
+            evaluacionesParaGuardar.push({
+              rac_id: rac.id,
+              puntaje: parseInt(evaluaciones[rac.id])
+            });
+          }
+        });
+      });
 
       await evaluacionApi.crearEvaluacionesMasivas(estudianteSeleccionado.id, evaluacionesParaGuardar);
       
@@ -128,12 +139,35 @@ const EvaluacionEstudiantesPage = () => {
       await evaluacionApi.crearOActualizarEvaluacion(
         estudianteSeleccionado.id,
         racId,
-        parseFloat(puntaje)
+        parseInt(puntaje)
       );
       
       toast.success('Evaluación guardada correctamente');
     } catch (error) {
       toast.error('Error al guardar evaluación: ' + error.message);
+    }
+  };
+
+  const regenerarRACsAleatorios = async () => {
+    try {
+      setLoading(true);
+      const racsData = await evaluacionApi.obtenerRACsAleatoriosPorGAC();
+      setRacsPorGac(racsData.racs_por_gac);
+      
+      // Reinicializar evaluaciones
+      const evaluacionesIniciales = {};
+      Object.values(racsData.racs_por_gac).forEach(racsGac => {
+        racsGac.forEach(rac => {
+          evaluacionesIniciales[rac.id] = '';
+        });
+      });
+      setEvaluaciones(evaluacionesIniciales);
+      
+      toast.success('RACs regenerados aleatoriamente');
+    } catch (error) {
+      toast.error('Error al regenerar RACs: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -157,28 +191,40 @@ const EvaluacionEstudiantesPage = () => {
             <FaUserGraduate className="text-3xl text-blue-600" />
             <div>
               <h1 className="text-3xl font-bold text-gray-800">Evaluación de Estudiantes</h1>
-              <p className="text-gray-600">Asigne calificaciones a los estudiantes para cada RAC</p>
+              <p className="text-gray-600">Asigne calificaciones a los estudiantes para cada RAC (3 por GAC)</p>
             </div>
           </div>
           
-          {/* Selector de Estudiante */}
-          <div className="max-w-md">
-            <label htmlFor="estudiante" className="block text-sm font-medium text-gray-700 mb-2">
-              Seleccionar Estudiante
-            </label>
-            <select
-              id="estudiante"
-              value={estudianteSeleccionado?.id || ''}
-              onChange={(e) => handleEstudianteChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+          <div className="flex items-center justify-between">
+            {/* Selector de Estudiante */}
+            <div className="max-w-md">
+              <label htmlFor="estudiante" className="block text-sm font-medium text-gray-700 mb-2">
+                Seleccionar Estudiante
+              </label>
+              <select
+                id="estudiante"
+                value={estudianteSeleccionado?.id || ''}
+                onChange={(e) => handleEstudianteChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">-- Seleccione un estudiante --</option>
+                {estudiantes.map(estudiante => (
+                  <option key={estudiante.id} value={estudiante.id}>
+                    {estudiante.nombre} - {estudiante.grupo} ({estudiante.documento})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Botón para regenerar RACs */}
+            <button
+              onClick={regenerarRACsAleatorios}
+              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center gap-2"
+              title="Regenerar RACs aleatorios"
             >
-              <option value="">-- Seleccione un estudiante --</option>
-              {estudiantes.map(estudiante => (
-                <option key={estudiante.id} value={estudiante.id}>
-                  {estudiante.nombre} - {estudiante.grupo} ({estudiante.documento})
-                </option>
-              ))}
-            </select>
+              <FaRandom className="w-4 h-4" />
+              Regenerar RACs
+            </button>
           </div>
         </div>
 
@@ -194,50 +240,62 @@ const EvaluacionEstudiantesPage = () => {
               </p>
             </div>
 
-            {/* Lista de RACs con campos de puntaje */}
-            <div className="space-y-4">
-              {racs.map(rac => (
-                <div key={rac.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
-                    {/* Descripción del RAC */}
-                    <div className="lg:col-span-2">
-                      <h3 className="font-semibold text-gray-800 mb-2">
-                        RAC {rac.numero}
-                      </h3>
-                      <p className="text-gray-600 text-sm leading-relaxed">
-                        {rac.descripcion}
-                      </p>
-                    </div>
+            {/* RACs organizados por GAC */}
+            <div className="space-y-8">
+              {Object.entries(racsPorGac).map(([gacNumero, racs]) => (
+                <div key={gacNumero} className="border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4 bg-blue-50 p-3 rounded-md">
+                    GAC {gacNumero} - {racs.length} RACs seleccionados
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {racs.map(rac => (
+                      <div key={rac.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
+                          {/* Descripción del RAC */}
+                          <div className="lg:col-span-2">
+                            <h4 className="font-semibold text-gray-800 mb-2">
+                              RAC {rac.numero}
+                            </h4>
+                            <p className="text-gray-600 text-sm leading-relaxed">
+                              {rac.descripcion}
+                            </p>
+                          </div>
 
-                    {/* Campo de Puntaje */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <label htmlFor={`puntaje-${rac.id}`} className="block text-sm font-medium text-gray-700 mb-1">
-                          Puntaje (0.0 - 5.0)
-                        </label>
-                        <input
-                          type="number"
-                          id={`puntaje-${rac.id}`}
-                          min="0.0"
-                          max="5.0"
-                          step="0.1"
-                          value={evaluaciones[rac.id] || ''}
-                          onChange={(e) => handlePuntajeChange(rac.id, e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="0.0"
-                        />
+                          {/* Campo de Puntaje */}
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1">
+                              <label htmlFor={`puntaje-${rac.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                                Puntaje
+                              </label>
+                              <select
+                                id={`puntaje-${rac.id}`}
+                                value={evaluaciones[rac.id] || ''}
+                                onChange={(e) => handlePuntajeChange(rac.id, e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              >
+                                <option value="">-- Seleccione --</option>
+                                <option value="1">1 - Insuficiente</option>
+                                <option value="2">2 - Básico</option>
+                                <option value="3">3 - Satisfactorio</option>
+                                <option value="4">4 - Bueno</option>
+                                <option value="5">5 - Excelente</option>
+                              </select>
+                            </div>
+                            
+                            {/* Botón para guardar individual */}
+                            <button
+                              onClick={() => guardarEvaluacionIndividual(rac.id)}
+                              disabled={!evaluaciones[rac.id] || evaluaciones[rac.id] === ''}
+                              className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                              title="Guardar evaluación individual"
+                            >
+                              <FaCheck className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                      
-                      {/* Botón para guardar individual */}
-                      <button
-                        onClick={() => guardarEvaluacionIndividual(rac.id)}
-                        disabled={!evaluaciones[rac.id] || evaluaciones[rac.id] === ''}
-                        className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                        title="Guardar evaluación individual"
-                      >
-                        <FaCheck className="w-4 h-4" />
-                      </button>
-                    </div>
+                    ))}
                   </div>
                 </div>
               ))}

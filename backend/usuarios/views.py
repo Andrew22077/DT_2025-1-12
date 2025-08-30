@@ -6,7 +6,7 @@ from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login as django_login
 from rest_framework.permissions import AllowAny
 from .models import Profesor
-from .serializers import ProfesorSerializer
+from .serializers import ProfesorSerializer, ProfesorPerfilSerializer, ProfesorFotoSerializer
 from .permissions import IsStaffUser
 import pandas as pd
 from django.http import HttpResponse, JsonResponse
@@ -39,7 +39,7 @@ def login_view(request):
     token, _ = Token.objects.get_or_create(user=user)
 
     # Serializar la información del usuario
-    serializer = ProfesorSerializer(user)
+    serializer = ProfesorPerfilSerializer(user)
 
     # Devolver la respuesta con el token y la información del usuario
     return Response({
@@ -77,7 +77,7 @@ def listar_profesores(request):
     print(f"Usuario autenticado: {request.user}")  # Esto es útil para depurar
 
     profesores = Profesor.objects.all()
-    serializer = ProfesorSerializer(profesores, many=True)
+    serializer = ProfesorPerfilSerializer(profesores, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
 
 @api_view(['GET', 'PUT'])
@@ -89,7 +89,7 @@ def profesor_detail(request, id):
         return Response({'error': 'Profesor no encontrado'}, status=404)
 
     if request.method == 'GET':
-        serializer = ProfesorSerializer(profesor)
+        serializer = ProfesorPerfilSerializer(profesor)
         return Response(serializer.data)
 
     elif request.method == 'PUT':
@@ -98,7 +98,7 @@ def profesor_detail(request, id):
         if not data.get('contrasenia'):
             data.pop('contrasenia', None)
 
-        serializer = ProfesorSerializer(profesor, data=data, partial=True)
+        serializer = ProfesorPerfilSerializer(profesor, data=data, partial=True)
         if serializer.is_valid():
             if 'contrasenia' in data:
                 profesor.set_password(data['contrasenia'])
@@ -127,8 +127,36 @@ def update_profesor_status(request, id):
     profesor.save()
 
     # Serializar el objeto actualizado
-    serializer = ProfesorSerializer(profesor)
+    serializer = ProfesorPerfilSerializer(profesor)
     return Response(serializer.data, status=status.HTTP_200_OK)
+
+# Nueva vista para actualizar solo la foto del profesor
+@api_view(['PUT'])
+@permission_classes([IsAuthenticated])
+def actualizar_foto_profesor(request, id):
+    """Actualizar solo la foto de un profesor"""
+    try:
+        # Verificar que el usuario solo pueda actualizar su propia foto o sea admin
+        if not request.user.is_staff and request.user.id != id:
+            return Response({
+                'error': 'No tienes permisos para actualizar la foto de otro profesor'
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        profesor = Profesor.objects.get(id=id)
+    except Profesor.DoesNotExist:
+        return Response({'error': 'Profesor no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = ProfesorFotoSerializer(profesor, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        # Retornar el perfil completo actualizado
+        perfil_serializer = ProfesorPerfilSerializer(profesor)
+        return Response({
+            'mensaje': 'Foto actualizada correctamente',
+            'profesor': perfil_serializer.data
+        }, status=status.HTTP_200_OK)
+    
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsStaffUser])
@@ -138,7 +166,7 @@ def export_excel_profesores(request):
         profesores = Profesor.objects.all().order_by('nombre')
         
         # Crear DataFrame con los datos
-        serializer = ProfesorSerializer(profesores, many=True)
+        serializer = ProfesorPerfilSerializer(profesores, many=True)
         df = pd.DataFrame(serializer.data)
         
         if df.empty:
@@ -152,12 +180,14 @@ def export_excel_profesores(request):
             'nombre': 'NOMBRE',
             'correo': 'CORREO',
             'is_active': 'ACTIVO',
-            'is_staff': 'ES ADMIN'
+            'is_staff': 'ES ADMIN',
+            'foto': 'TIENE FOTO'
         })
         
         # Convertir valores booleanos a texto legible
         df['ACTIVO'] = df['ACTIVO'].map({True: 'SÍ', False: 'NO'})
         df['ES ADMIN'] = df['ES ADMIN'].map({True: 'SÍ', False: 'NO'})
+        df['TIENE FOTO'] = df['TIENE FOTO'].map({True: 'SÍ', False: 'NO'})
         
         # Crear respuesta HTTP
         response = HttpResponse(
@@ -175,6 +205,7 @@ def export_excel_profesores(request):
                     'Total de profesores:',
                     'Profesores activos:',
                     'Profesores administradores:',
+                    'Profesores con foto:',
                     'Generado por:'
                 ],
                 'Valor': [
@@ -182,6 +213,7 @@ def export_excel_profesores(request):
                     len(df),
                     len(df[df['ACTIVO'] == 'SÍ']),
                     len(df[df['ES ADMIN'] == 'SÍ']),
+                    len(df[df['TIENE FOTO'] == 'SÍ']),
                     request.user.nombre
                 ]
             })
@@ -316,7 +348,7 @@ def actualizar_perfil_usuario(request):
     if not data.get('contrasenia'):
         data.pop('contrasenia', None)
 
-    serializer = ProfesorSerializer(usuario, data=data, partial=True)
+    serializer = ProfesorPerfilSerializer(usuario, data=data, partial=True)
     if serializer.is_valid():
         if 'contrasenia' in data:
             usuario.set_password(data['contrasenia'])
@@ -691,7 +723,7 @@ def get_current_user(request):
     """Obtener información del usuario autenticado"""
     try:
         user = request.user
-        serializer = ProfesorSerializer(user)
+        serializer = ProfesorPerfilSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
     except Exception as e:
         return Response({

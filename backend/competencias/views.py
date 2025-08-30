@@ -9,6 +9,7 @@ from .models import GAC, RAC, Materia, Evaluacion
 from .serializers import GACSerializer, RACSerializer, MateriaSerializer, EvaluacionSerializer
 from usuarios.models import Profesor, Estudiante
 from django.db.models import Avg, Count
+import random
 
 # Create your views here.
 
@@ -44,6 +45,41 @@ def obtener_estudiantes(request):
                 'documento': estudiante.documento
             })
         return Response(data)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def obtener_racs_aleatorios_por_gac(request):
+    """Obtener 3 RACs aleatorios por cada GAC para evaluación"""
+    try:
+        gacs = GAC.objects.all().order_by('numero')
+        racs_por_gac = {}
+        
+        for gac in gacs:
+            # Obtener todos los RACs asociados a este GAC
+            racs_del_gac = list(RAC.objects.filter(gacs=gac))
+            
+            # Seleccionar 3 RACs aleatorios
+            if len(racs_del_gac) >= 3:
+                racs_seleccionados = random.sample(racs_del_gac, 3)
+            else:
+                racs_seleccionados = racs_del_gac
+            
+            racs_por_gac[gac.numero] = []
+            for rac in racs_seleccionados:
+                racs_por_gac[gac.numero].append({
+                    'id': rac.id,
+                    'numero': rac.numero,
+                    'descripcion': rac.descripcion
+                })
+        
+        return Response({
+            'racs_por_gac': racs_por_gac,
+            'total_gacs': len(gacs),
+            'total_racs_seleccionados': sum(len(racs) for racs in racs_por_gac.values())
+        })
+        
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -102,17 +138,17 @@ def crear_o_actualizar_evaluacion(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validar que el puntaje esté entre 0.0 y 5.0
+        # Validar que el puntaje esté entre 1 y 5
         try:
-            puntaje_float = float(puntaje)
-            if not (0.0 <= puntaje_float <= 5.0):
+            puntaje_int = int(puntaje)
+            if not (1 <= puntaje_int <= 5):
                 return Response(
-                    {'error': 'El puntaje debe estar entre 0.0 y 5.0'}, 
+                    {'error': 'El puntaje debe estar entre 1 y 5'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
         except (ValueError, TypeError):
             return Response(
-                {'error': 'El puntaje debe ser un número válido'}, 
+                {'error': 'El puntaje debe ser un número entero entre 1 y 5'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -143,7 +179,7 @@ def crear_o_actualizar_evaluacion(request):
 
         if evaluacion_existente:
             # Actualizar evaluación existente
-            evaluacion_existente.puntaje = puntaje_float
+            evaluacion_existente.puntaje = puntaje_int
             evaluacion_existente.save()
             evaluacion = evaluacion_existente
         else:
@@ -152,7 +188,7 @@ def crear_o_actualizar_evaluacion(request):
                 estudiante_id=estudiante_id,
                 rac_id=rac_id,
                 profesor_id=profesor_id,
-                puntaje=puntaje_float
+                puntaje=puntaje_int
             )
 
         serializer = EvaluacionSerializer(evaluacion)
@@ -204,19 +240,19 @@ def crear_evaluaciones_masivas(request):
                 })
                 continue
 
-            # Validar puntaje
+            # Validar puntaje (1-5)
             try:
-                puntaje_float = float(puntaje)
-                if not (0.0 <= puntaje_float <= 5.0):
+                puntaje_int = int(puntaje)
+                if not (1 <= puntaje_int <= 5):
                     resultados.append({
                         'rac_id': rac_id,
-                        'error': f'El puntaje debe estar entre 0.0 y 5.0 (recibido: {puntaje})'
+                        'error': f'El puntaje debe estar entre 1 y 5 (recibido: {puntaje})'
                     })
                     continue
             except (ValueError, TypeError):
                 resultados.append({
                     'rac_id': rac_id,
-                    'error': f'El puntaje debe ser un número válido (recibido: {puntaje})'
+                    'error': f'El puntaje debe ser un número entero entre 1 y 5 (recibido: {puntaje})'
                 })
                 continue
 
@@ -235,7 +271,7 @@ def crear_evaluaciones_masivas(request):
                 estudiante_id=estudiante_id,
                 rac_id=rac_id,
                 profesor_id=profesor_id,
-                defaults={'puntaje': puntaje_float}
+                defaults={'puntaje': puntaje_int}
             )
 
             if created:
@@ -245,7 +281,7 @@ def crear_evaluaciones_masivas(request):
 
             resultados.append({
                 'rac_id': rac_id,
-                'puntaje': puntaje_float,
+                'puntaje': puntaje_int,
                 'created': created,
                 'success': True
             })
@@ -281,7 +317,7 @@ def estadisticas_evaluaciones(request):
         )['promedio'] or 0.0
         
         # Evaluaciones aprobadas vs reprobadas
-        aprobadas = Evaluacion.objects.filter(puntaje__gte=3.0).count()
+        aprobadas = Evaluacion.objects.filter(puntaje__gte=3).count()
         reprobadas = total_evaluaciones - aprobadas
         
         # Top 5 RACs con mejor promedio
@@ -312,5 +348,126 @@ def estadisticas_evaluaciones(request):
             'top_racs': top_racs_data
         })
 
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def estadisticas_por_gac(request):
+    """Obtener estadísticas de evaluaciones por GAC"""
+    try:
+        gacs = GAC.objects.all().order_by('numero')
+        estadisticas_gac = []
+        
+        for gac in gacs:
+            # Obtener RACs del GAC
+            racs_del_gac = RAC.objects.filter(gacs=gac)
+            
+            # Obtener evaluaciones de estos RACs
+            evaluaciones_gac = Evaluacion.objects.filter(rac__in=racs_del_gac)
+            
+            if evaluaciones_gac.exists():
+                promedio_gac = evaluaciones_gac.aggregate(
+                    promedio=Avg('puntaje')
+                )['promedio'] or 0.0
+                
+                aprobadas_gac = evaluaciones_gac.filter(puntaje__gte=3).count()
+                total_gac = evaluaciones_gac.count()
+                
+                estadisticas_gac.append({
+                    'gac_numero': gac.numero,
+                    'gac_descripcion': gac.descripcion[:100] + "..." if len(gac.descripcion) > 100 else gac.descripcion,
+                    'promedio': float(promedio_gac),
+                    'total_evaluaciones': total_gac,
+                    'aprobadas': aprobadas_gac,
+                    'reprobadas': total_gac - aprobadas_gac,
+                    'porcentaje_aprobacion': (aprobadas_gac / total_gac * 100) if total_gac > 0 else 0
+                })
+        
+        return Response({
+            'estadisticas_por_gac': estadisticas_gac,
+            'total_gacs': len(estadisticas_gac)
+        })
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def resultados_estudiante(request, estudiante_id):
+    """Obtener resultados detallados de un estudiante"""
+    try:
+        # Verificar que el estudiante existe
+        try:
+            estudiante = Estudiante.objects.get(id=estudiante_id)
+        except Estudiante.DoesNotExist:
+            return Response(
+                {'error': 'Estudiante no encontrado'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Obtener evaluaciones del estudiante agrupadas por GAC
+        evaluaciones = Evaluacion.objects.filter(estudiante_id=estudiante_id).select_related('rac')
+        
+        resultados_por_gac = {}
+        total_puntaje = 0
+        total_evaluaciones = 0
+        
+        for evaluacion in evaluaciones:
+            # Obtener GACs del RAC
+            gacs_del_rac = evaluacion.rac.gacs.all()
+            
+            for gac in gacs_del_rac:
+                if gac.numero not in resultados_por_gac:
+                    resultados_por_gac[gac.numero] = {
+                        'gac_numero': gac.numero,
+                        'gac_descripcion': gac.descripcion,
+                        'racs': [],
+                        'promedio_gac': 0,
+                        'total_racs': 0
+                    }
+                
+                # Agregar RAC a la lista
+                rac_info = {
+                    'rac_numero': evaluacion.rac.numero,
+                    'rac_descripcion': evaluacion.rac.descripcion,
+                    'puntaje': evaluacion.puntaje,
+                    'es_aprobado': evaluacion.es_aprobado,
+                    'fecha': evaluacion.fecha
+                }
+                
+                if rac_info not in resultados_por_gac[gac.numero]['racs']:
+                    resultados_por_gac[gac.numero]['racs'].append(rac_info)
+                    resultados_por_gac[gac.numero]['total_racs'] += 1
+                
+                total_puntaje += evaluacion.puntaje
+                total_evaluaciones += 1
+        
+        # Calcular promedios por GAC
+        for gac_numero in resultados_por_gac:
+            racs_gac = resultados_por_gac[gac_numero]['racs']
+            if racs_gac:
+                puntaje_total_gac = sum(rac['puntaje'] for rac in racs_gac)
+                resultados_por_gac[gac_numero]['promedio_gac'] = puntaje_total_gac / len(racs_gac)
+        
+        # Calcular promedio general
+        promedio_general = total_puntaje / total_evaluaciones if total_evaluaciones > 0 else 0
+        
+        return Response({
+            'estudiante': {
+                'id': estudiante.id,
+                'nombre': estudiante.nombre,
+                'grupo': estudiante.grupo,
+                'documento': estudiante.documento,
+                'estado': estudiante.estado
+            },
+            'resultados_por_gac': list(resultados_por_gac.values()),
+            'resumen_general': {
+                'total_evaluaciones': total_evaluaciones,
+                'promedio_general': float(promedio_general),
+                'total_gacs_evaluados': len(resultados_por_gac)
+            }
+        })
+        
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

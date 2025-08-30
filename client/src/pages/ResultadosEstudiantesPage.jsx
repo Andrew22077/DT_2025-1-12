@@ -1,0 +1,344 @@
+import React, { useState, useEffect } from 'react';
+import { useEvaluacionApi } from '../api/EvaluacionApi';
+import { useAuth } from '../api/Auth';
+import { FaUserGraduate, FaChartBar, FaSearch, FaEye, FaDownload, FaUsers } from 'react-icons/fa';
+import toast from 'react-hot-toast';
+
+const ResultadosEstudiantesPage = () => {
+  const { user } = useAuth();
+  const evaluacionApi = useEvaluacionApi();
+  
+  const [estudiantes, setEstudiantes] = useState([]);
+  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
+  const [resultadosEstudiante, setResultadosEstudiante] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [cargandoResultados, setCargandoResultados] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    cargarEstudiantes();
+  }, []);
+
+  const cargarEstudiantes = async () => {
+    try {
+      setLoading(true);
+      const estudiantesData = await evaluacionApi.obtenerEstudiantes();
+      setEstudiantes(estudiantesData);
+    } catch (error) {
+      toast.error('Error al cargar estudiantes: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEstudianteChange = async (estudianteId) => {
+    if (!estudianteId) {
+      setEstudianteSeleccionado(null);
+      setResultadosEstudiante(null);
+      return;
+    }
+
+    const estudiante = estudiantes.find(e => e.id === parseInt(estudianteId));
+    setEstudianteSeleccionado(estudiante);
+
+    try {
+      setCargandoResultados(true);
+      const resultados = await evaluacionApi.obtenerResultadosEstudiante(estudianteId);
+      setResultadosEstudiante(resultados);
+    } catch (error) {
+      toast.error('Error al cargar resultados del estudiante: ' + error.message);
+    } finally {
+      setCargandoResultados(false);
+    }
+  };
+
+  const getColorByPuntaje = (promedio) => {
+    if (promedio >= 4.0) return 'text-green-600 bg-green-50';
+    if (promedio >= 3.0) return 'text-blue-600 bg-blue-50';
+    if (promedio >= 2.0) return 'text-yellow-600 bg-yellow-50';
+    return 'text-red-600 bg-red-50';
+  };
+
+  const getColorByPuntajeIndividual = (puntaje) => {
+    if (puntaje >= 4) return 'text-green-600';
+    if (puntaje >= 3) return 'text-blue-600';
+    if (puntaje >= 2) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getEstadoEvaluacion = (puntaje) => {
+    if (puntaje >= 3) return { texto: 'Aprobado', color: 'text-green-600', bg: 'bg-green-100' };
+    return { texto: 'Reprobado', color: 'text-red-600', bg: 'bg-red-100' };
+  };
+
+  const estudiantesFiltrados = estudiantes.filter(estudiante =>
+    estudiante.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    estudiante.grupo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    estudiante.documento.includes(searchTerm)
+  );
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando estudiantes...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100 py-8">
+      <div className="max-w-7xl mx-auto px-4">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <FaUserGraduate className="text-3xl text-blue-600" />
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">Resultados de Estudiantes</h1>
+              <p className="text-gray-600">Consulte el rendimiento detallado de cada estudiante por GAC</p>
+            </div>
+          </div>
+          
+          <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+            {/* Buscador */}
+            <div className="flex-1 max-w-md">
+              <label htmlFor="search" className="block text-sm font-medium text-gray-700 mb-2">
+                Buscar Estudiante
+              </label>
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  id="search"
+                  placeholder="Nombre, grupo o documento..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Selector de Estudiante */}
+            <div className="w-full lg:w-80">
+              <label htmlFor="estudiante" className="block text-sm font-medium text-gray-700 mb-2">
+                Seleccionar Estudiante
+              </label>
+              <select
+                id="estudiante"
+                value={estudianteSeleccionado?.id || ''}
+                onChange={(e) => handleEstudianteChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">-- Seleccione un estudiante --</option>
+                {estudiantesFiltrados.map(estudiante => (
+                  <option key={estudiante.id} value={estudiante.id}>
+                    {estudiante.nombre} - {estudiante.grupo} ({estudiante.documento})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Resultados del Estudiante */}
+        {estudianteSeleccionado && (
+          <div className="space-y-6">
+            {/* Información del Estudiante */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-2xl font-semibold text-gray-800">
+                    {estudianteSeleccionado.nombre}
+                  </h2>
+                  <p className="text-gray-600">
+                    Grupo: {estudianteSeleccionado.grupo} | Documento: {estudianteSeleccionado.documento}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className={`text-3xl font-bold px-4 py-2 rounded-lg ${getColorByPuntaje(resultadosEstudiante?.resumen_general?.promedio_general || 0)}`}>
+                    {resultadosEstudiante?.resumen_general?.promedio_general?.toFixed(2) || '0.00'}
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">Promedio General</p>
+                </div>
+              </div>
+
+              {resultadosEstudiante && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-blue-50 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {resultadosEstudiante.resumen_general.total_evaluaciones}
+                    </div>
+                    <div className="text-sm text-blue-800">Total Evaluaciones</div>
+                  </div>
+                  
+                  <div className="bg-green-50 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {resultadosEstudiante.resumen_general.total_gacs_evaluados}
+                    </div>
+                    <div className="text-sm text-green-800">GACs Evaluados</div>
+                  </div>
+                  
+                  <div className="bg-purple-50 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {resultadosEstudiante.resumen_general.total_evaluaciones}
+                    </div>
+                    <div className="text-sm text-purple-800">RACs Evaluados</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Resultados por GAC */}
+            {cargandoResultados ? (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Cargando resultados del estudiante...</p>
+              </div>
+            ) : resultadosEstudiante && resultadosEstudiante.resultados_por_gac ? (
+              <div className="space-y-6">
+                {resultadosEstudiante.resultados_por_gac.map((gac) => (
+                  <div key={gac.gac_numero} className="bg-white rounded-lg shadow-md p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-xl font-semibold text-gray-800">
+                        GAC {gac.gac_numero}
+                      </h3>
+                      <div className={`text-2xl font-bold px-4 py-2 rounded-lg ${getColorByPuntaje(gac.promedio_gac)}`}>
+                        {gac.promedio_gac.toFixed(2)}
+                      </div>
+                    </div>
+                    
+                    <p className="text-gray-600 mb-4">{gac.gac_descripcion}</p>
+                    
+                    {/* RACs del GAC */}
+                    <div className="space-y-3">
+                      {gac.racs.map((rac, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-gray-800 mb-1">
+                                RAC {rac.rac_numero}
+                              </h4>
+                              <p className="text-sm text-gray-600 mb-2">{rac.rac_descripcion}</p>
+                              <div className="flex items-center gap-4 text-sm">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getEstadoEvaluacion(rac.puntaje).bg} ${getEstadoEvaluacion(rac.puntaje).color}`}>
+                                  {getEstadoEvaluacion(rac.puntaje).texto}
+                                </span>
+                                <span className="text-gray-500">
+                                  Fecha: {new Date(rac.fecha).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="text-right">
+                              <div className={`text-3xl font-bold ${getColorByPuntajeIndividual(rac.puntaje)}`}>
+                                {rac.puntaje}
+                              </div>
+                              <div className="text-sm text-gray-500">Puntaje</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-md p-12 text-center">
+                <FaUserGraduate className="text-6xl text-gray-300 mx-auto mb-4" />
+                <h3 className="text-xl font-medium text-gray-600 mb-2">
+                  No hay resultados disponibles
+                </h3>
+                <p className="text-gray-500">
+                  Este estudiante no tiene evaluaciones registradas
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Mensaje cuando no hay estudiante seleccionado */}
+        {!estudianteSeleccionado && (
+          <div className="bg-white rounded-lg shadow-md p-12 text-center">
+            <FaUserGraduate className="text-6xl text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-medium text-gray-600 mb-2">
+              Seleccione un estudiante para ver resultados
+            </h3>
+            <p className="text-gray-500">
+              Use el selector de arriba para elegir el estudiante cuyos resultados desea consultar
+            </p>
+          </div>
+        )}
+
+        {/* Lista de Estudiantes */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+            <FaUsers className="text-blue-600" />
+            Lista de Estudiantes ({estudiantesFiltrados.length})
+          </h3>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estudiante
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Grupo
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Documento
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {estudiantesFiltrados.map((estudiante) => (
+                  <tr key={estudiante.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{estudiante.nombre}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{estudiante.grupo}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{estudiante.documento}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                        estudiante.estado === 'matriculado' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {estudiante.estado === 'matriculado' ? 'Matriculado' : 'Prematriculado'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        onClick={() => handleEstudianteChange(estudiante.id)}
+                        className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
+                      >
+                        <FaEye className="w-4 h-4" />
+                        Ver Resultados
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ResultadosEstudiantesPage;
+

@@ -41,6 +41,24 @@ export const useEvaluacionApi = () => {
     }
   };
 
+  const obtenerRACsAleatoriosPorGAC = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/racs/aleatorios-por-gac/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al obtener RACs aleatorios por GAC');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error en obtenerRACsAleatoriosPorGAC:', error);
+      throw error;
+    }
+  };
+
   const obtenerEvaluacionesEstudiante = async (estudianteId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/evaluaciones/estudiante/${estudianteId}/`, {
@@ -112,11 +130,69 @@ export const useEvaluacionApi = () => {
     }
   };
 
+  const obtenerEstadisticasGenerales = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/evaluaciones/estadisticas/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al obtener estadísticas generales');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error en obtenerEstadisticasGenerales:', error);
+      throw error;
+    }
+  };
+
+  const obtenerEstadisticasPorGAC = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/evaluaciones/estadisticas-por-gac/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al obtener estadísticas por GAC');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error en obtenerEstadisticasPorGAC:', error);
+      throw error;
+    }
+  };
+
+  const obtenerResultadosEstudiante = async (estudianteId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/evaluaciones/resultados-estudiante/${estudianteId}/`, {
+        method: 'GET',
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al obtener resultados del estudiante');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error en obtenerResultadosEstudiante:', error);
+      throw error;
+    }
+  };
+
   return {
     obtenerEstudiantes,
     obtenerRACs,
+    obtenerRACsAleatoriosPorGAC,
     obtenerEvaluacionesEstudiante,
     crearOActualizarEvaluacion,
     crearEvaluacionesMasivas,
+    obtenerEstadisticasGenerales,
+    obtenerEstadisticasPorGAC,
+    obtenerResultadosEstudiante,
   };
 };

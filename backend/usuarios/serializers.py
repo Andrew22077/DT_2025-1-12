@@ -22,6 +22,48 @@ class ProfesorTablaSerializer(serializers.ModelSerializer):
         fields = ['id', 'last_login', 'cedula', 'nombre', 'correo', 'is_active', 'is_staff']
         read_only_fields = fields
 
+# Serializer para perfil completo (incluye foto)
+class ProfesorPerfilSerializer(serializers.ModelSerializer):
+    foto_url = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Profesor
+        fields = ['id', 'cedula', 'nombre', 'correo', 'foto', 'foto_url', 'is_active', 'is_staff']
+        read_only_fields = ['id', 'is_active', 'is_staff']
+    
+    def get_foto_url(self, obj):
+        """Obtener URL de la foto o imagen por defecto"""
+        if obj.foto and hasattr(obj.foto, 'url'):
+            return obj.foto.url
+        return '/static/default-avatar.png'
+    
+    def update(self, instance, validated_data):
+        """Actualizar profesor con validación de foto"""
+        # Si se está actualizando la foto, eliminar la anterior
+        if 'foto' in validated_data and instance.foto:
+            # Eliminar archivo anterior del sistema de archivos
+            if instance.foto:
+                instance.foto.delete(save=False)
+        
+        return super().update(instance, validated_data)
+
+# Serializer para actualización de foto únicamente
+class ProfesorFotoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profesor
+        fields = ['foto']
+    
+    def update(self, instance, validated_data):
+        """Actualizar solo la foto del profesor"""
+        # Eliminar foto anterior si existe
+        if instance.foto:
+            instance.foto.delete(save=False)
+        
+        # Asignar nueva foto
+        instance.foto = validated_data.get('foto', instance.foto)
+        instance.save()
+        return instance
+
 class EstudianteSerializer(serializers.ModelSerializer):
     estado_display = serializers.CharField(source='get_estado_display', read_only=True)
     
