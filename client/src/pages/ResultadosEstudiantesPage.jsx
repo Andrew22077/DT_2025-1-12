@@ -283,6 +283,59 @@ const ResultadosEstudiantesPage = () => {
                 </ResponsiveContainer>
               </div>
             </div>
+
+            {/* Tabla de evaluaciones detalladas */}
+            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                Evaluaciones Detalladas
+              </h3>
+              {resultadosEstudiante.evaluaciones?.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Profesor
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          RAC
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Descripción
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Puntaje
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {resultadosEstudiante.evaluaciones.map(
+                        (evalItem, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {evalItem.profesor}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {evalItem.rac_numero}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {evalItem.rac_descripcion}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {evalItem.puntaje}
+                            </td>
+                          </tr>
+                        )
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-gray-500">
+                  No hay evaluaciones registradas para este estudiante.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
@@ -317,20 +370,14 @@ const ResultadosEstudiantesPage = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {estudiantesFiltrados.map((estudiante) => (
                   <tr key={estudiante.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {estudiante.nombre}
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {estudiante.nombre}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {estudiante.grupo}
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {estudiante.grupo}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {estudiante.documento}
-                      </div>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {estudiante.documento}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span

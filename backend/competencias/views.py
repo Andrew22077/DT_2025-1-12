@@ -427,7 +427,6 @@ def resultados_estudiante(request, estudiante_id):
         ]
 
         # === Gráfico: promedio por GAC ===
-        # Usamos el id del GAC para agrupar sin duplicados
         grafico_gacs_qs = (
             evaluaciones.values("rac__gacs__id")
             .annotate(
@@ -446,6 +445,17 @@ def resultados_estudiante(request, estudiante_id):
             for g in grafico_gacs_qs
         ]
 
+        # === Lista de evaluaciones detalladas ===
+        evaluaciones_detalle = [
+            {
+                "profesor": e.profesor.nombre,
+                "rac_numero": e.rac.numero,
+                "rac_descripcion": e.rac.descripcion,
+                "puntaje": e.puntaje,
+            }
+            for e in evaluaciones
+        ]
+
         data = {
             "resumen_general": {
                 "promedio_general": round(promedio_general, 2),
@@ -455,7 +465,9 @@ def resultados_estudiante(request, estudiante_id):
             },
             "grafico_profesores": grafico_profesores,
             "grafico_gacs": grafico_gacs,
+            "evaluaciones": evaluaciones_detalle,  # <-- Aquí se añade la lista
         }
+
         return JsonResponse(data, safe=False)
 
     except Estudiante.DoesNotExist:
