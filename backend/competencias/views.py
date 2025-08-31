@@ -8,9 +8,10 @@ from django.core.exceptions import ValidationError
 from .models import GAC, RAC, Materia, Evaluacion
 from .serializers import GACSerializer, RACSerializer, MateriaSerializer, EvaluacionSerializer , EstadisticaGACSerializer
 from usuarios.models import Profesor, Estudiante
-from django.db.models import Avg, Count, F
+from django.db.models import Avg, Count, F, Max
 import random
 from django.http import JsonResponse
+import logging
 
 # Create your views here.
 
@@ -303,62 +304,93 @@ def crear_evaluaciones_masivas(request):
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+from django.db.models import Avg, Count, F
+from django.db.models import Q
+
+from django.db.models import Avg, Count, Max, Q
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Evaluacion, Estudiante, GAC
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework import status
+from django.db.models import Avg, Count
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def estadisticas_evaluaciones(request):
-    """Obtener estadísticas generales de evaluaciones por GAC"""
     try:
-        total_evaluaciones = Evaluacion.objects.count()
-        total_estudiantes = Estudiante.objects.filter(estado='matriculado').count()
-        total_gacs = GAC.objects.count()
-
-        promedio_general = Evaluacion.objects.aggregate(
-            promedio=Avg('puntaje')
-        )['promedio'] or 0.0
-
-        aprobadas = Evaluacion.objects.filter(puntaje__gte=3).count()
-        reprobadas = total_evaluaciones - aprobadas
-
-        # Top 5 GACs con mejor promedio
-        top_gacs = (
-            GAC.objects.annotate(
-                promedio=Avg('racs__evaluaciones__puntaje'),
-                total_eval=Count('racs__evaluaciones')
-            )
-            .filter(total_eval__gt=0)
-            .order_by('-promedio')[:5]
+        # Evaluaciones únicas por (profesor, estudiante) -> tomar la última fecha
+        evaluaciones_unicas = (
+            Evaluacion.objects
+            .values('profesor', 'estudiante', 'rac__gacs')
+            .annotate(ultima_fecha=Max('fecha'), puntaje=Max('puntaje'))
         )
 
-        top_gacs_data = EstadisticaGACSerializer([
-            {
+        total_evaluaciones = evaluaciones_unicas.count()
+        total_estudiantes = Evaluacion.objects.values('estudiante').distinct().count()
+
+        # Promedio general de todas las evaluaciones
+        promedio_general = Evaluacion.objects.aggregate(promedio=Avg('puntaje'))['promedio'] or 0.0
+
+        # Aprobadas / Reprobadas basado en evaluaciones únicas
+        aprobadas = sum(1 for e in evaluaciones_unicas if e['puntaje'] >= 3)
+        reprobadas = total_evaluaciones - aprobadas
+        porcentaje_aprobacion = (aprobadas / total_evaluaciones * 100) if total_evaluaciones > 0 else 0
+
+        # Datos por estudiante para BI
+        estudiantes_data = []
+        estudiantes_qs = Estudiante.objects.all()
+        for est in estudiantes_qs:
+            est_evals = evaluaciones_unicas.filter(estudiante=est.id)
+            for e in est_evals:
+                gac_obj = GAC.objects.get(id=e['rac__gacs'])
+                estudiantes_data.append({
+                    "estudiante": est.nombre,
+                    "gac": gac_obj.numero,
+                    "gac_descripcion": gac_obj.descripcion,
+                    "puntaje": e['puntaje']
+                })
+
+        # Top 5 GACs
+        top_gacs_data = []
+        gacs = GAC.objects.all()
+        for g in gacs:
+            evals_gac = [e for e in evaluaciones_unicas if e['rac__gacs'] == g.id]
+            total = len(evals_gac)
+            aprobadas_gac = sum(1 for e in evals_gac if e['puntaje'] >= 3)
+            reprobadas_gac = total - aprobadas_gac
+            promedio_gac = sum(e['puntaje'] for e in evals_gac) / total if total > 0 else 0
+            porcentaje_aprobacion_gac = (aprobadas_gac / total * 100) if total > 0 else 0
+            top_gacs_data.append({
                 "gac_numero": g.numero,
-                "gac_descripcion": g.descripcion[:100] + "..." if len(g.descripcion) > 100 else g.descripcion,
-                "promedio": float(g.promedio or 0.0),
-                "total_evaluaciones": g.total_eval,
-                "aprobadas": Evaluacion.objects.filter(rac__gacs=g, puntaje__gte=3).count(),
-                "reprobadas": Evaluacion.objects.filter(rac__gacs=g, puntaje__lt=3).count(),
-                "porcentaje_aprobacion": (Evaluacion.objects.filter(rac__gacs=g, puntaje__gte=3).count() / g.total_eval * 100)
-                                        if g.total_eval > 0 else 0
-            }
-            for g in top_gacs
-        ], many=True).data
+                "gac_descripcion": g.descripcion,
+                "promedio": round(promedio_gac, 2),
+                "total_evaluaciones": total,
+                "aprobadas": aprobadas_gac,
+                "reprobadas": reprobadas_gac,
+                "porcentaje_aprobacion": porcentaje_aprobacion_gac
+            })
 
         return Response({
-            'resumen_general': {
-                'total_evaluaciones': total_evaluaciones,
-                'total_estudiantes': total_estudiantes,
-                'total_gacs': total_gacs,
-                'promedio_general': float(promedio_general),
-                'aprobadas': aprobadas,
-                'reprobadas': reprobadas,
-                'porcentaje_aprobacion': (aprobadas / total_evaluaciones * 100) if total_evaluaciones > 0 else 0
+            "resumen_general": {
+                "total_evaluaciones": total_evaluaciones,
+                "total_estudiantes": total_estudiantes,
+                "promedio_general": round(promedio_general, 2),
+                "aprobadas": aprobadas,
+                "reprobadas": reprobadas,
+                "porcentaje_aprobacion": round(porcentaje_aprobacion, 2)
             },
-            'top_gacs': top_gacs_data
+            "top_gacs": top_gacs_data,
+            "estudiantes": estudiantes_data
         })
-
     except Exception as e:
+        print("Error en estadisticas_evaluaciones:", e)
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
