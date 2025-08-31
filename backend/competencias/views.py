@@ -6,10 +6,11 @@ from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from django.core.exceptions import ValidationError
 from .models import GAC, RAC, Materia, Evaluacion
-from .serializers import GACSerializer, RACSerializer, MateriaSerializer, EvaluacionSerializer
+from .serializers import GACSerializer, RACSerializer, MateriaSerializer, EvaluacionSerializer , EstadisticaGACSerializer
 from usuarios.models import Profesor, Estudiante
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, F
 import random
+from django.http import JsonResponse
 
 # Create your views here.
 
@@ -305,75 +306,79 @@ def crear_evaluaciones_masivas(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def estadisticas_evaluaciones(request):
-    """Obtener estadísticas generales de evaluaciones"""
+    """Obtener estadísticas generales de evaluaciones por GAC"""
     try:
         total_evaluaciones = Evaluacion.objects.count()
         total_estudiantes = Estudiante.objects.filter(estado='matriculado').count()
-        total_racs = RAC.objects.count()
-        
-        # Promedio general de puntajes
+        total_gacs = GAC.objects.count()
+
         promedio_general = Evaluacion.objects.aggregate(
             promedio=Avg('puntaje')
         )['promedio'] or 0.0
-        
-        # Evaluaciones aprobadas vs reprobadas
+
         aprobadas = Evaluacion.objects.filter(puntaje__gte=3).count()
         reprobadas = total_evaluaciones - aprobadas
-        
-        # Top 5 RACs con mejor promedio
-        top_racs = RAC.objects.annotate(
-            promedio=Avg('evaluaciones__puntaje'),
-            total_eval=Count('evaluaciones')
-        ).filter(total_eval__gt=0).order_by('-promedio')[:5]
-        
-        top_racs_data = []
-        for rac in top_racs:
-            top_racs_data.append({
-                'numero': rac.numero,
-                'descripcion': rac.descripcion[:100] + "..." if len(rac.descripcion) > 100 else rac.descripcion,
-                'promedio': float(rac.promedio or 0.0),
-                'total_evaluaciones': rac.total_eval
-            })
+
+        # Top 5 GACs con mejor promedio
+        top_gacs = (
+            GAC.objects.annotate(
+                promedio=Avg('racs__evaluaciones__puntaje'),
+                total_eval=Count('racs__evaluaciones')
+            )
+            .filter(total_eval__gt=0)
+            .order_by('-promedio')[:5]
+        )
+
+        top_gacs_data = EstadisticaGACSerializer([
+            {
+                "gac_numero": g.numero,
+                "gac_descripcion": g.descripcion[:100] + "..." if len(g.descripcion) > 100 else g.descripcion,
+                "promedio": float(g.promedio or 0.0),
+                "total_evaluaciones": g.total_eval,
+                "aprobadas": Evaluacion.objects.filter(rac__gacs=g, puntaje__gte=3).count(),
+                "reprobadas": Evaluacion.objects.filter(rac__gacs=g, puntaje__lt=3).count(),
+                "porcentaje_aprobacion": (Evaluacion.objects.filter(rac__gacs=g, puntaje__gte=3).count() / g.total_eval * 100)
+                                        if g.total_eval > 0 else 0
+            }
+            for g in top_gacs
+        ], many=True).data
 
         return Response({
             'resumen_general': {
                 'total_evaluaciones': total_evaluaciones,
                 'total_estudiantes': total_estudiantes,
-                'total_racs': total_racs,
+                'total_gacs': total_gacs,
                 'promedio_general': float(promedio_general),
                 'aprobadas': aprobadas,
                 'reprobadas': reprobadas,
                 'porcentaje_aprobacion': (aprobadas / total_evaluaciones * 100) if total_evaluaciones > 0 else 0
             },
-            'top_racs': top_racs_data
+            'top_gacs': top_gacs_data
         })
 
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def estadisticas_por_gac(request):
-    """Obtener estadísticas de evaluaciones por GAC"""
+    """Obtener estadísticas de evaluaciones por cada GAC"""
     try:
         gacs = GAC.objects.all().order_by('numero')
         estadisticas_gac = []
-        
+
         for gac in gacs:
-            # Obtener RACs del GAC
-            racs_del_gac = RAC.objects.filter(gacs=gac)
-            
-            # Obtener evaluaciones de estos RACs
-            evaluaciones_gac = Evaluacion.objects.filter(rac__in=racs_del_gac)
-            
+            evaluaciones_gac = Evaluacion.objects.filter(rac__gacs=gac)
+
             if evaluaciones_gac.exists():
                 promedio_gac = evaluaciones_gac.aggregate(
                     promedio=Avg('puntaje')
                 )['promedio'] or 0.0
-                
+
                 aprobadas_gac = evaluaciones_gac.filter(puntaje__gte=3).count()
                 total_gac = evaluaciones_gac.count()
-                
+
                 estadisticas_gac.append({
                     'gac_numero': gac.numero,
                     'gac_descripcion': gac.descripcion[:100] + "..." if len(gac.descripcion) > 100 else gac.descripcion,
@@ -383,91 +388,75 @@ def estadisticas_por_gac(request):
                     'reprobadas': total_gac - aprobadas_gac,
                     'porcentaje_aprobacion': (aprobadas_gac / total_gac * 100) if total_gac > 0 else 0
                 })
-        
+
+        serializer = EstadisticaGACSerializer(estadisticas_gac, many=True)
         return Response({
-            'estadisticas_por_gac': estadisticas_gac,
-            'total_gacs': len(estadisticas_gac)
+            'estadisticas_por_gac': serializer.data,
+            'total_gacs': len(serializer.data)
         })
-        
+
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+    
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def resultados_estudiante(request, estudiante_id):
-    """Obtener resultados detallados de un estudiante"""
     try:
-        # Verificar que el estudiante existe
-        try:
-            estudiante = Estudiante.objects.get(id=estudiante_id)
-        except Estudiante.DoesNotExist:
-            return Response(
-                {'error': 'Estudiante no encontrado'}, 
-                status=status.HTTP_404_NOT_FOUND
+        estudiante = Estudiante.objects.get(pk=estudiante_id)
+
+        # Todas las evaluaciones del estudiante
+        evaluaciones = Evaluacion.objects.filter(estudiante=estudiante)
+
+        # Promedio general
+        promedio_general = evaluaciones.aggregate(promedio=Avg("puntaje"))["promedio"] or 0
+
+        # Totales
+        total_evaluaciones = evaluaciones.values("profesor").distinct().count()
+        total_gacs = evaluaciones.values("rac__gacs__id").distinct().count()
+        total_racs = evaluaciones.values("rac__id").distinct().count()
+
+        # === Gráfico: promedio por profesor ===
+        grafico_profesores_qs = (
+            evaluaciones.values("profesor__nombre")
+            .annotate(promedio=Avg("puntaje"))
+            .order_by("profesor__nombre")
+        )
+        grafico_profesores = [
+            {"profesor": g["profesor__nombre"], "promedio": round(g["promedio"], 2)}
+            for g in grafico_profesores_qs
+        ]
+
+        # === Gráfico: promedio por GAC ===
+        # Usamos el id del GAC para agrupar sin duplicados
+        grafico_gacs_qs = (
+            evaluaciones.values("rac__gacs__id")
+            .annotate(
+                numero=F("rac__gacs__numero"),
+                descripcion=F("rac__gacs__descripcion"),
+                promedio=Avg("puntaje"),
             )
-        
-        # Obtener evaluaciones del estudiante agrupadas por GAC
-        evaluaciones = Evaluacion.objects.filter(estudiante_id=estudiante_id).select_related('rac')
-        
-        resultados_por_gac = {}
-        total_puntaje = 0
-        total_evaluaciones = 0
-        
-        for evaluacion in evaluaciones:
-            # Obtener GACs del RAC
-            gacs_del_rac = evaluacion.rac.gacs.all()
-            
-            for gac in gacs_del_rac:
-                if gac.numero not in resultados_por_gac:
-                    resultados_por_gac[gac.numero] = {
-                        'gac_numero': gac.numero,
-                        'gac_descripcion': gac.descripcion,
-                        'racs': [],
-                        'promedio_gac': 0,
-                        'total_racs': 0
-                    }
-                
-                # Agregar RAC a la lista
-                rac_info = {
-                    'rac_numero': evaluacion.rac.numero,
-                    'rac_descripcion': evaluacion.rac.descripcion,
-                    'puntaje': evaluacion.puntaje,
-                    'es_aprobado': evaluacion.es_aprobado,
-                    'fecha': evaluacion.fecha
-                }
-                
-                if rac_info not in resultados_por_gac[gac.numero]['racs']:
-                    resultados_por_gac[gac.numero]['racs'].append(rac_info)
-                    resultados_por_gac[gac.numero]['total_racs'] += 1
-                
-                total_puntaje += evaluacion.puntaje
-                total_evaluaciones += 1
-        
-        # Calcular promedios por GAC
-        for gac_numero in resultados_por_gac:
-            racs_gac = resultados_por_gac[gac_numero]['racs']
-            if racs_gac:
-                puntaje_total_gac = sum(rac['puntaje'] for rac in racs_gac)
-                resultados_por_gac[gac_numero]['promedio_gac'] = puntaje_total_gac / len(racs_gac)
-        
-        # Calcular promedio general
-        promedio_general = total_puntaje / total_evaluaciones if total_evaluaciones > 0 else 0
-        
-        return Response({
-            'estudiante': {
-                'id': estudiante.id,
-                'nombre': estudiante.nombre,
-                'grupo': estudiante.grupo,
-                'documento': estudiante.documento,
-                'estado': estudiante.estado
-            },
-            'resultados_por_gac': list(resultados_por_gac.values()),
-            'resumen_general': {
-                'total_evaluaciones': total_evaluaciones,
-                'promedio_general': float(promedio_general),
-                'total_gacs_evaluados': len(resultados_por_gac)
+            .order_by("numero")
+        )
+        grafico_gacs = [
+            {
+                "gac": f"GAC {g['numero']}",
+                "descripcion": g["descripcion"],
+                "promedio": round(g["promedio"], 2),
             }
-        })
-        
-    except Exception as e:
-        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            for g in grafico_gacs_qs
+        ]
+
+        data = {
+            "resumen_general": {
+                "promedio_general": round(promedio_general, 2),
+                "total_evaluaciones": total_evaluaciones,
+                "total_gacs_evaluados": total_gacs,
+                "total_racs_evaluados": total_racs,
+            },
+            "grafico_profesores": grafico_profesores,
+            "grafico_gacs": grafico_gacs,
+        }
+        return JsonResponse(data, safe=False)
+
+    except Estudiante.DoesNotExist:
+        return JsonResponse({"error": "Estudiante no encontrado"}, status=404)

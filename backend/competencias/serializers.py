@@ -53,3 +53,11 @@ class EvaluacionSerializer(serializers.ModelSerializer):
             "profesor", "profesor_id",
             "puntaje", "fecha"
         ]
+        
+class EstadisticaGACSerializer(serializers.Serializer):
+    gac_numero = serializers.IntegerField()
+    gac_descripcion = serializers.CharField()
+    promedio = serializers.FloatField()
+    total_evaluaciones = serializers.IntegerField()
+    aprobadas = serializers.IntegerField()
+    reprobadas = serializers.IntegerField()
