@@ -504,3 +504,94 @@ def resultados_estudiante(request, estudiante_id):
 
     except Estudiante.DoesNotExist:
         return JsonResponse({"error": "Estudiante no encontrado"}, status=404)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def resultados_globales(request):
+    try:
+        # Todas las evaluaciones
+        evaluaciones = Evaluacion.objects.all()
+
+        # Promedio general
+        promedio_general = evaluaciones.aggregate(promedio=Avg("puntaje"))["promedio"] or 0
+
+        # Totales
+        total_evaluaciones = evaluaciones.values("profesor", "estudiante").distinct().count()
+        total_gacs = evaluaciones.values("rac__gacs__id").distinct().count()
+        total_racs = evaluaciones.values("rac__id").distinct().count()
+        total_estudiantes = evaluaciones.values("estudiante").distinct().count()
+        total_profesores = evaluaciones.values("profesor").distinct().count()
+
+        # === Gráfico: promedio por profesor ===
+        grafico_profesores_qs = (
+            evaluaciones.values("profesor__nombre")
+            .annotate(promedio=Avg("puntaje"))
+            .order_by("profesor__nombre")
+        )
+        grafico_profesores = [
+            {"profesor": g["profesor__nombre"], "promedio": round(g["promedio"], 2)}
+            for g in grafico_profesores_qs
+        ]
+
+        # === Gráfico: promedio por GAC ===
+        grafico_gacs_qs = (
+            evaluaciones.values("rac__gacs__id")
+            .annotate(
+                numero=F("rac__gacs__numero"),
+                descripcion=F("rac__gacs__descripcion"),
+                promedio=Avg("puntaje"),
+            )
+            .order_by("numero")
+        )
+        grafico_gacs = [
+            {
+                "gac": f"GAC {g['numero']}",
+                "descripcion": g["descripcion"],
+                "promedio": round(g["promedio"], 2),
+            }
+            for g in grafico_gacs_qs
+        ]
+
+        # === Gráfico: promedio por estudiante ===
+        grafico_estudiantes_qs = (
+            evaluaciones.values("estudiante__nombre")
+            .annotate(promedio=Avg("puntaje"))
+            .order_by("estudiante__nombre")
+        )
+        grafico_estudiantes = [
+            {"estudiante": g["estudiante__nombre"], "promedio": round(g["promedio"], 2)}
+            for g in grafico_estudiantes_qs
+        ]
+
+        # === Lista de evaluaciones detalladas ===
+        evaluaciones_detalle = [
+            {
+                "estudiante": e.estudiante.nombre,
+                "profesor": e.profesor.nombre,
+                "rac_numero": e.rac.numero,
+                "rac_descripcion": e.rac.descripcion,
+                "puntaje": e.puntaje,
+            }
+            for e in evaluaciones
+        ]
+
+        data = {
+            "resumen_general": {
+                "promedio_general": round(promedio_general, 2),
+                "total_evaluaciones": total_evaluaciones,
+                "total_gacs_evaluados": total_gacs,
+                "total_racs_evaluados": total_racs,
+                "total_estudiantes": total_estudiantes,
+                "total_profesores": total_profesores,
+            },
+            "grafico_profesores": grafico_profesores,
+            "grafico_gacs": grafico_gacs,
+            "grafico_estudiantes": grafico_estudiantes,
+            "evaluaciones": evaluaciones_detalle,
+        }
+
+        return JsonResponse(data, safe=False)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

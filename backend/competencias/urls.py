@@ -19,7 +19,8 @@ urlpatterns = [
     path('api/evaluaciones/estadisticas/', views.estadisticas_evaluaciones, name='estadisticas_evaluaciones'),
     path('api/evaluaciones/estadisticas-por-gac/', views.estadisticas_por_gac, name='estadisticas_por_gac'),
     path('api/evaluaciones/resultados-estudiante/<int:estudiante_id>/', views.resultados_estudiante, name='resultados_estudiante'),
-    
+    path('api/evaluaciones/resultados-globales/', views.resultados_globales, name='resultados_globales'),
+
     # Router URLs después (más generales)
     path('api/', include(router.urls)),
 ]

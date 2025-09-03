@@ -6,6 +6,7 @@ import {
   FaUsers,
   FaGraduationCap,
   FaCheckCircle,
+  FaChalkboardTeacher,
 } from "react-icons/fa";
 import {
   BarChart,
@@ -22,22 +23,23 @@ const Informes = () => {
   const { user } = useAuth();
   const evaluacionApi = useEvaluacionApi();
 
-  const [estadisticasGenerales, setEstadisticasGenerales] = useState(null);
+  const [resultadosGlobales, setResultadosGlobales] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
   const [filtroEstudiante, setFiltroEstudiante] = useState("todos");
+  const [filtroProfesor, setFiltroProfesor] = useState("todos");
 
   useEffect(() => {
-    cargarEstadisticas();
+    cargarResultados();
   }, []);
 
-  const cargarEstadisticas = async () => {
+  const cargarResultados = async () => {
     try {
       setLoading(true);
-      const datos = await evaluacionApi.obtenerEstadisticasGenerales();
-      setEstadisticasGenerales(datos);
+      const datos = await evaluacionApi.obtenerResultadosGlobales();
+      setResultadosGlobales(datos);
     } catch (error) {
-      toast.error("Error al cargar estadísticas: " + (error.message || error));
+      toast.error("Error al cargar resultados: " + (error.message || error));
     } finally {
       setLoading(false);
     }
@@ -50,12 +52,12 @@ const Informes = () => {
     return "text-red-600";
   };
 
-  if (loading || !estadisticasGenerales) {
+  if (loading || !resultadosGlobales) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando estadísticas...</p>
+          <p className="mt-4 text-gray-600">Cargando resultados globales...</p>
         </div>
       </div>
     );
@@ -63,26 +65,20 @@ const Informes = () => {
 
   const {
     resumen_general = {},
-    top_gacs = [],
-    estudiantes = [],
-  } = estadisticasGenerales;
+    grafico_gacs = [],
+    grafico_profesores = [],
+    grafico_estudiantes = [],
+    evaluaciones = [],
+  } = resultadosGlobales;
 
-  // Filtrar datos por estudiante si se selecciona
-  const topGacsFiltrados =
-    filtroEstudiante === "todos"
-      ? top_gacs
-      : top_gacs.map((gac) => ({
-          ...gac,
-          total_evaluaciones: gac.evaluaciones.filter(
-            (e) => e.estudiante_id === filtroEstudiante
-          ).length,
-          aprobadas: gac.evaluaciones.filter(
-            (e) => e.estudiante_id === filtroEstudiante && e.puntaje >= 3
-          ).length,
-          reprobadas: gac.evaluaciones.filter(
-            (e) => e.estudiante_id === filtroEstudiante && e.puntaje < 3
-          ).length,
-        }));
+  // Filtrar evaluaciones
+  const evaluacionesFiltradas = evaluaciones.filter((e) => {
+    if (filtroEstudiante !== "todos" && e.estudiante !== filtroEstudiante)
+      return false;
+    if (filtroProfesor !== "todos" && e.profesor !== filtroProfesor)
+      return false;
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-gray-100 py-8">
@@ -96,59 +92,39 @@ const Informes = () => {
                 Dashboard de Evaluaciones BI
               </h1>
               <p className="text-gray-600">
-                Visualización interactiva de estadísticas
+                Visualización interactiva de estadísticas globales
               </p>
             </div>
           </div>
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
-              <button
-                onClick={() => setActiveTab("general")}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === "general"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Estadísticas Generales
-              </button>
-              <button
-                onClick={() => setActiveTab("gac")}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === "gac"
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Estadísticas por GAC
-              </button>
+              {[
+                ["general", "Resumen General"],
+                ["gac", "Por GAC"],
+                ["profesor", "Por Profesor"],
+                ["estudiante", "Por Estudiante"],
+              ].map(([tab, label]) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === tab
+                      ? "border-blue-500 text-blue-600"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
             </nav>
           </div>
         </div>
 
-        {/* Filtro por estudiante */}
-        {activeTab === "gac" && (
-          <div className="mb-4">
-            <label className="mr-2 font-medium">Filtrar por estudiante:</label>
-            <select
-              value={filtroEstudiante}
-              onChange={(e) => setFiltroEstudiante(e.target.value)}
-              className="border rounded p-1"
-            >
-              <option value="todos">Todos</option>
-              {estudiantes.map((est) => (
-                <option key={est.id} value={est.id}>
-                  {est.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Estadísticas Generales */}
+        {/* --- Tab General --- */}
         {activeTab === "general" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Resumen */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="bg-blue-50 rounded-lg p-6 text-center shadow-md">
                 <FaChartBar className="text-3xl text-blue-600 mx-auto mb-2" />
                 <div className="text-2xl font-bold text-blue-600">
@@ -161,9 +137,14 @@ const Informes = () => {
                 <div className="text-2xl font-bold text-green-600">
                   {resumen_general.total_estudiantes}
                 </div>
-                <div className="text-sm text-green-800">
-                  Estudiantes Evaluados
+                <div className="text-sm text-green-800">Estudiantes</div>
+              </div>
+              <div className="bg-yellow-50 rounded-lg p-6 text-center shadow-md">
+                <FaChalkboardTeacher className="text-3xl text-yellow-600 mx-auto mb-2" />
+                <div className="text-2xl font-bold text-yellow-600">
+                  {resumen_general.total_profesores}
                 </div>
+                <div className="text-sm text-yellow-800">Profesores</div>
               </div>
               <div className="bg-purple-50 rounded-lg p-6 text-center shadow-md">
                 <FaGraduationCap className="text-3xl text-purple-600 mx-auto mb-2" />
@@ -178,48 +159,38 @@ const Informes = () => {
               </div>
               <div className="bg-orange-50 rounded-lg p-6 text-center shadow-md">
                 <FaCheckCircle className="text-3xl text-orange-600 mx-auto mb-2" />
-                <div
-                  className={`text-2xl font-bold ${getColorByPuntaje(
-                    resumen_general.porcentaje_aprobacion
-                  )}`}
-                >
-                  {resumen_general.porcentaje_aprobacion.toFixed(1)}%
+                <div className="text-2xl font-bold text-orange-600">
+                  {resumen_general.total_gacs_evaluados}
                 </div>
-                <div className="text-sm text-orange-800">Aprobación</div>
+                <div className="text-sm text-orange-800">GACs Evaluados</div>
               </div>
             </div>
 
-            {/* Gráfico de Aprobados vs Reprobados */}
+            {/* Gráfico comparativo GACs */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                Resultados por categoría
+                Promedio por GAC
               </h2>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={[resumen_general]}>
-                  <XAxis dataKey="nombre" />
+                <BarChart data={grafico_gacs}>
+                  <XAxis dataKey="gac" />
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="aprobadas" fill="#34D399" name="Aprobadas" />
-                  <Bar dataKey="reprobadas" fill="#F87171" name="Reprobadas" />
+                  <Bar dataKey="promedio" fill="#3B82F6" name="Promedio" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
         )}
 
-        {/* Estadísticas por GAC */}
+        {/* --- Tab por GAC --- */}
         {activeTab === "gac" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {topGacsFiltrados.map((gac) => (
-              <div
-                key={gac.gac_numero}
-                className="bg-white rounded-lg shadow-md p-6"
-              >
+            {grafico_gacs.map((gac) => (
+              <div key={gac.gac} className="bg-white rounded-lg shadow-md p-6">
                 <div className="flex justify-between mb-4">
-                  <h3 className="font-semibold text-gray-800">
-                    GAC {gac.gac_numero}
-                  </h3>
+                  <h3 className="font-semibold text-gray-800">{gac.gac}</h3>
                   <div
                     className={`text-2xl font-bold ${getColorByPuntaje(
                       gac.promedio
@@ -228,32 +199,107 @@ const Informes = () => {
                     {gac.promedio.toFixed(2)}
                   </div>
                 </div>
-                <p className="text-gray-600 mb-4">{gac.gac_descripcion}</p>
-                <ResponsiveContainer width="100%" height={150}>
-                  <BarChart data={[gac]}>
-                    <XAxis dataKey="nombre" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="aprobadas" fill="#34D399" name="Aprobadas" />
-                    <Bar
-                      dataKey="reprobadas"
-                      fill="#F87171"
-                      name="Reprobadas"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                <p className="text-gray-600 mb-4">{gac.descripcion}</p>
               </div>
             ))}
           </div>
         )}
 
+        {/* --- Tab por Profesor --- */}
+        {activeTab === "profesor" && (
+          <div>
+            <div className="mb-4">
+              <label className="mr-2 font-medium">Filtrar por profesor:</label>
+              <select
+                value={filtroProfesor}
+                onChange={(e) => setFiltroProfesor(e.target.value)}
+                className="border rounded p-1"
+              >
+                <option value="todos">Todos</option>
+                {grafico_profesores.map((p) => (
+                  <option key={p.profesor} value={p.profesor}>
+                    {p.profesor}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">
+                Promedio por Profesor
+              </h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={
+                    filtroProfesor === "todos"
+                      ? grafico_profesores
+                      : grafico_profesores.filter(
+                          (p) => p.profesor === filtroProfesor
+                        )
+                  }
+                >
+                  <XAxis dataKey="profesor" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="promedio" fill="#10B981" name="Promedio" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* --- Tab por Estudiante --- */}
+        {activeTab === "estudiante" && (
+          <div>
+            <div className="mb-4">
+              <label className="mr-2 font-medium">
+                Filtrar por estudiante:
+              </label>
+              <select
+                value={filtroEstudiante}
+                onChange={(e) => setFiltroEstudiante(e.target.value)}
+                className="border rounded p-1"
+              >
+                <option value="todos">Todos</option>
+                {grafico_estudiantes.map((e) => (
+                  <option key={e.estudiante} value={e.estudiante}>
+                    {e.estudiante}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">
+                Promedio por Estudiante
+              </h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={
+                    filtroEstudiante === "todos"
+                      ? grafico_estudiantes
+                      : grafico_estudiantes.filter(
+                          (e) => e.estudiante === filtroEstudiante
+                        )
+                  }
+                >
+                  <XAxis dataKey="estudiante" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="promedio" fill="#F59E0B" name="Promedio" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
         <div className="text-center mt-8">
           <button
-            onClick={cargarEstadisticas}
+            onClick={cargarResultados}
             disabled={loading}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? "Actualizando..." : "Actualizar Estadísticas"}
+            {loading ? "Actualizando..." : "Actualizar Datos"}
           </button>
         </div>
       </div>

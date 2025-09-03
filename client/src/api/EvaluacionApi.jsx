@@ -1,6 +1,6 @@
-import { useAuth } from './Auth';
+import { useAuth } from "./Auth";
 
-const API_BASE_URL = 'http://localhost:8000/competencias';
+const API_BASE_URL = "http://localhost:8000/competencias";
 
 export const useEvaluacionApi = () => {
   const { getAuthHeaders } = useAuth();
@@ -8,17 +8,17 @@ export const useEvaluacionApi = () => {
   const obtenerEstudiantes = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/estudiantes/`, {
-        method: 'GET',
+        method: "GET",
         headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
-        throw new Error('Error al obtener estudiantes');
+        throw new Error("Error al obtener estudiantes");
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Error en obtenerEstudiantes:', error);
+      console.error("Error en obtenerEstudiantes:", error);
       throw error;
     }
   };
@@ -26,53 +26,59 @@ export const useEvaluacionApi = () => {
   const obtenerRACs = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/racs/`, {
-        method: 'GET',
+        method: "GET",
         headers: getAuthHeaders(),
       });
 
       if (!response.ok) {
-        throw new Error('Error al obtener RACs');
+        throw new Error("Error al obtener RACs");
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Error en obtenerRACs:', error);
+      console.error("Error en obtenerRACs:", error);
       throw error;
     }
   };
 
   const obtenerRACsAleatoriosPorGAC = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/racs/aleatorios-por-gac/`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/racs/aleatorios-por-gac/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Error al obtener RACs aleatorios por GAC');
+        throw new Error("Error al obtener RACs aleatorios por GAC");
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Error en obtenerRACsAleatoriosPorGAC:', error);
+      console.error("Error en obtenerRACsAleatoriosPorGAC:", error);
       throw error;
     }
   };
 
   const obtenerEvaluacionesEstudiante = async (estudianteId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/evaluaciones/estudiante/${estudianteId}/`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/evaluaciones/estudiante/${estudianteId}/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Error al obtener evaluaciones del estudiante');
+        throw new Error("Error al obtener evaluaciones del estudiante");
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Error en obtenerEvaluacionesEstudiante:', error);
+      console.error("Error en obtenerEvaluacionesEstudiante:", error);
       throw error;
     }
   };
@@ -80,10 +86,10 @@ export const useEvaluacionApi = () => {
   const crearOActualizarEvaluacion = async (estudianteId, racId, puntaje) => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/evaluaciones/crear/`, {
-        method: 'POST',
+        method: "POST",
         headers: {
           ...getAuthHeaders(),
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           estudiante_id: estudianteId,
@@ -94,92 +100,130 @@ export const useEvaluacionApi = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al crear/actualizar evaluación');
+        throw new Error(
+          errorData.error || "Error al crear/actualizar evaluación"
+        );
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Error en crearOActualizarEvaluacion:', error);
+      console.error("Error en crearOActualizarEvaluacion:", error);
       throw error;
     }
   };
 
   const crearEvaluacionesMasivas = async (estudianteId, evaluaciones) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/evaluaciones/masivas/`, {
-        method: 'POST',
-        headers: {
-          ...getAuthHeaders(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          estudiante_id: estudianteId,
-          evaluaciones: evaluaciones,
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/evaluaciones/masivas/`,
+        {
+          method: "POST",
+          headers: {
+            ...getAuthHeaders(),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            estudiante_id: estudianteId,
+            evaluaciones: evaluaciones,
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al crear evaluaciones masivas');
+        throw new Error(
+          errorData.error || "Error al crear evaluaciones masivas"
+        );
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Error en crearEvaluacionesMasivas:', error);
+      console.error("Error en crearEvaluacionesMasivas:", error);
       throw error;
     }
   };
 
   const obtenerEstadisticasGenerales = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/evaluaciones/estadisticas/`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/evaluaciones/estadisticas/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Error al obtener estadísticas generales');
+        throw new Error("Error al obtener estadísticas generales");
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Error en obtenerEstadisticasGenerales:', error);
+      console.error("Error en obtenerEstadisticasGenerales:", error);
       throw error;
     }
   };
 
   const obtenerEstadisticasPorGAC = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/evaluaciones/estadisticas-por-gac/`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/evaluaciones/estadisticas-por-gac/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Error al obtener estadísticas por GAC');
+        throw new Error("Error al obtener estadísticas por GAC");
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Error en obtenerEstadisticasPorGAC:', error);
+      console.error("Error en obtenerEstadisticasPorGAC:", error);
       throw error;
     }
   };
 
   const obtenerResultadosEstudiante = async (estudianteId) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/evaluaciones/resultados-estudiante/${estudianteId}/`, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/evaluaciones/resultados-estudiante/${estudianteId}/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Error al obtener resultados del estudiante');
+        throw new Error("Error al obtener resultados del estudiante");
       }
 
       return await response.json();
     } catch (error) {
-      console.error('Error en obtenerResultadosEstudiante:', error);
+      console.error("Error en obtenerResultadosEstudiante:", error);
+      throw error;
+    }
+  };
+
+  // 🔥 Nuevo método para resultados globales
+  const obtenerResultadosGlobales = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/evaluaciones/resultados-globales/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al obtener resultados globales");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error en obtenerResultadosGlobales:", error);
       throw error;
     }
   };
@@ -194,5 +238,6 @@ export const useEvaluacionApi = () => {
     obtenerEstadisticasGenerales,
     obtenerEstadisticasPorGAC,
     obtenerResultadosEstudiante,
+    obtenerResultadosGlobales,
   };
 };
