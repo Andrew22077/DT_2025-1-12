@@ -73,9 +73,6 @@ def logout(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsStaffUser])  # Asegúrate de que solo los usuarios autenticados y con permisos de staff pueden acceder
 def listar_profesores(request):
-    # Aquí puedes agregar un print para depurar el usuario autenticado
-    print(f"Usuario autenticado: {request.user}")  # Esto es útil para depurar
-
     profesores = Profesor.objects.all()
     serializer = ProfesorPerfilSerializer(profesores, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -94,18 +91,28 @@ def profesor_detail(request, id):
 
     elif request.method == 'PUT':
         data = request.data.copy()
+        print(f"Datos recibidos en profesor_detail: {data}")
+        print(f"Materias en datos: {data.get('materias', 'No hay materias')}")
+        
         # Si la contraseña no se actualiza, elimínala
         if not data.get('contrasenia'):
             data.pop('contrasenia', None)
 
         serializer = ProfesorPerfilSerializer(profesor, data=data, partial=True)
         if serializer.is_valid():
-            if 'contrasenia' in data:
-                profesor.set_password(data['contrasenia'])
-                profesor.save()
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=400)
+            try:
+                if 'contrasenia' in data:
+                    profesor.set_password(data['contrasenia'])
+                    profesor.save()
+                serializer.save()
+                print(f"Profesor actualizado correctamente: {serializer.data}")
+                return Response(serializer.data)
+            except Exception as e:
+                print(f"Error al guardar profesor: {e}")
+                return Response({'error': f'Error al guardar: {str(e)}'}, status=500)
+        else:
+            print(f"Errores de validación en profesor_detail: {serializer.errors}")
+            return Response(serializer.errors, status=400)
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated, IsStaffUser])  # Solo los administradores pueden cambiar el estado
@@ -343,6 +350,7 @@ def actualizar_perfil_usuario(request):
     usuario = request.user  # Usuario autenticado
 
     data = request.data.copy()
+    print(f"Datos recibidos: {data}")
 
     # Si no se quiere actualizar la contraseña, la eliminamos de los datos
     if not data.get('contrasenia'):
@@ -350,12 +358,18 @@ def actualizar_perfil_usuario(request):
 
     serializer = ProfesorPerfilSerializer(usuario, data=data, partial=True)
     if serializer.is_valid():
-        if 'contrasenia' in data:
-            usuario.set_password(data['contrasenia'])
-            usuario.save()
-        serializer.save()
-        return Response({'mensaje': 'Perfil actualizado correctamente', 'usuario': serializer.data})
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            if 'contrasenia' in data:
+                usuario.set_password(data['contrasenia'])
+                usuario.save()
+            serializer.save()
+            return Response({'mensaje': 'Perfil actualizado correctamente', 'usuario': serializer.data})
+        except Exception as e:
+            print(f"Error al guardar: {e}")
+            return Response({'error': f'Error al guardar: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        print(f"Errores de validación: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 #Estudiantes
 @api_view(['GET'])

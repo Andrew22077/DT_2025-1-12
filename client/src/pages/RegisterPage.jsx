@@ -1,9 +1,10 @@
 // src/components/RegisterPage.js
 import React, { useState, useEffect } from "react";
-import { registerProfesor, updateProfesor } from "../api/UserApi";
+import { registerProfesor, updateProfesor, useUserApi } from "../api/UserApi";
 import { useNavigate } from "react-router-dom";
 
 const RegisterPage = ({ editing = false, profesor = null }) => {
+  const { getMaterias } = useUserApi();
   const [formData, setFormData] = useState({
     nombre: "",
     correo: "",
@@ -11,12 +12,30 @@ const RegisterPage = ({ editing = false, profesor = null }) => {
     password: "",
     is_staff: false,
     is_active: true,
+    materias: [],
   });
 
+  const [materias, setMaterias] = useState([]);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
+    const cargarMaterias = async () => {
+      try {
+        setLoading(true);
+        const materiasData = await getMaterias();
+        setMaterias(materiasData);
+      } catch (error) {
+        console.error("Error al cargar materias:", error);
+        setError("Error al cargar las materias");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    cargarMaterias();
+
     if (editing && profesor) {
       setFormData({
         nombre: profesor.nombre,
@@ -25,9 +44,12 @@ const RegisterPage = ({ editing = false, profesor = null }) => {
         password: "", // No se edita la contraseña
         is_staff: profesor.is_staff,
         is_active: profesor.is_active,
+        materias: profesor.materias
+          ? profesor.materias.map((m) => m.id).filter((id) => id != null)
+          : [],
       });
     }
-  }, [editing, profesor]);
+  }, [editing, profesor, getMaterias]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -37,19 +59,45 @@ const RegisterPage = ({ editing = false, profesor = null }) => {
     }));
   };
 
+  const handleMateriaChange = (materiaId) => {
+    // Validar que materiaId sea válido
+    if (!materiaId || materiaId === null || materiaId === undefined) {
+      console.error("ID de materia inválido:", materiaId);
+      return;
+    }
+
+    setFormData((prevData) => {
+      const newMaterias = prevData.materias.includes(materiaId)
+        ? prevData.materias.filter((id) => id !== materiaId)
+        : [...prevData.materias, materiaId];
+
+      // Filtrar valores nulos o indefinidos
+      const filteredMaterias = newMaterias.filter(
+        (id) => id != null && id !== undefined
+      );
+
+      return {
+        ...prevData,
+        materias: filteredMaterias,
+      };
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editing) {
-        // En edición, se envían todos los campos
-        await updateProfesor(profesor.id, formData);
+        // En edición, se envían solo los campos necesarios (sin password)
+        const { password, ...dataToUpdate } = formData;
+        await updateProfesor(profesor.id, dataToUpdate);
       } else {
-        // En registro, solo se envían los campos necesarios
-        const { nombre, correo, cedula, password } = formData;
-        await registerProfesor({ nombre, correo, cedula, password });
+        // En registro, se envían los campos necesarios incluyendo materias
+        const { nombre, correo, cedula, password, materias } = formData;
+        await registerProfesor({ nombre, correo, cedula, password, materias });
       }
       navigate("/teacher-list");
-    } catch {
+    } catch (error) {
+      console.error("Error al registrar o actualizar el profesor:", error);
       setError("Error al registrar o actualizar el profesor.");
     }
   };
@@ -124,6 +172,31 @@ const RegisterPage = ({ editing = false, profesor = null }) => {
             />
           </div>
         )}
+
+        {/* Selección de materias */}
+        <div>
+          <label className="block mb-2 font-medium">Materias</label>
+          {loading ? (
+            <p className="text-gray-500">Cargando materias...</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded p-2">
+              {materias.map((materia) => (
+                <label
+                  key={materia.id}
+                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded"
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.materias.includes(materia.id)}
+                    onChange={() => handleMateriaChange(materia.id)}
+                    className="rounded"
+                  />
+                  <span className="text-sm">{materia.nombre}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
 
         {editing && (
           <>

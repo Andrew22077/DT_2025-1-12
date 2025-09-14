@@ -1,14 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { useEvaluacionApi } from '../api/EvaluacionApi';
-import { useAuth } from '../api/Auth';
-import { FaUserGraduate, FaSave, FaCheck, FaExclamationTriangle, FaRandom } from 'react-icons/fa';
-import toast from 'react-hot-toast';
+import React, { useState, useEffect } from "react";
+import { useEvaluacionApi } from "../api/EvaluacionApi";
+import { useAuth } from "../api/Auth";
+import {
+  FaUserGraduate,
+  FaSave,
+  FaCheck,
+  FaExclamationTriangle,
+  FaRandom,
+} from "react-icons/fa";
+import toast from "react-hot-toast";
 
 const EvaluacionEstudiantesPage = () => {
   const { user } = useAuth();
   const evaluacionApi = useEvaluacionApi();
-  
+
   const [estudiantes, setEstudiantes] = useState([]);
+  const [materias, setMaterias] = useState([]);
+  const [materiaSeleccionada, setMateriaSeleccionada] = useState(null);
   const [racsPorGac, setRacsPorGac] = useState({});
   const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
   const [evaluaciones, setEvaluaciones] = useState({});
@@ -22,25 +30,54 @@ const EvaluacionEstudiantesPage = () => {
   const cargarDatos = async () => {
     try {
       setLoading(true);
-      const [estudiantesData, racsData] = await Promise.all([
+      const [estudiantesData, materiasData] = await Promise.all([
         evaluacionApi.obtenerEstudiantes(),
-        evaluacionApi.obtenerRACsAleatoriosPorGAC()
+        evaluacionApi.obtenerMateriasProfesor(),
       ]);
-      
+
       setEstudiantes(estudiantesData);
-      setRacsPorGac(racsData.racs_por_gac);
-      
+      setMaterias(materiasData.materias);
+    } catch (error) {
+      toast.error("Error al cargar los datos: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMateriaChange = async (materiaId) => {
+    if (!materiaId) {
+      setMateriaSeleccionada(null);
+      setRacsPorGac({});
+      setEvaluaciones({});
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const materia = materias.find((m) => m.id === parseInt(materiaId));
+      setMateriaSeleccionada(materia);
+
+      // Obtener GACs y RACs para esta materia
+      const gacsData = await evaluacionApi.obtenerGACsPorMateria(materiaId);
+
+      // Convertir la estructura de datos para que sea compatible con el resto del código
+      const racsPorGacData = {};
+      gacsData.gacs.forEach((gac) => {
+        racsPorGacData[gac.gac_numero] = gac.racs;
+      });
+
+      setRacsPorGac(racsPorGacData);
+
       // Inicializar evaluaciones con valores por defecto
       const evaluacionesIniciales = {};
-      Object.values(racsData.racs_por_gac).forEach(racsGac => {
-        racsGac.forEach(rac => {
-          evaluacionesIniciales[rac.id] = '';
+      Object.values(racsPorGacData).forEach((racsGac) => {
+        racsGac.forEach((rac) => {
+          evaluacionesIniciales[rac.id] = "";
         });
       });
       setEvaluaciones(evaluacionesIniciales);
-      
     } catch (error) {
-      toast.error('Error al cargar los datos: ' + error.message);
+      toast.error("Error al cargar los GACs de la materia: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -53,41 +90,55 @@ const EvaluacionEstudiantesPage = () => {
       return;
     }
 
-    const estudiante = estudiantes.find(e => e.id === parseInt(estudianteId));
+    const estudiante = estudiantes.find((e) => e.id === parseInt(estudianteId));
     setEstudianteSeleccionado(estudiante);
+
+    // Si no hay materia seleccionada, no cargar evaluaciones
+    if (!materiaSeleccionada) {
+      return;
+    }
 
     try {
       // Cargar evaluaciones existentes del estudiante
-      const evaluacionesExistentes = await evaluacionApi.obtenerEvaluacionesEstudiante(estudianteId);
-      
+      const evaluacionesExistentes =
+        await evaluacionApi.obtenerEvaluacionesEstudiante(estudianteId);
+
       // Crear objeto de evaluaciones con valores existentes o vacíos
       const nuevasEvaluaciones = {};
-      Object.values(racsPorGac).forEach(racsGac => {
-        racsGac.forEach(rac => {
-          const evaluacionExistente = evaluacionesExistentes.find(e => e.rac_id === rac.id);
-          nuevasEvaluaciones[rac.id] = evaluacionExistente ? evaluacionExistente.puntaje.toString() : '';
+      Object.values(racsPorGac).forEach((racsGac) => {
+        racsGac.forEach((rac) => {
+          const evaluacionExistente = evaluacionesExistentes.find(
+            (e) => e.rac_id === rac.id
+          );
+          nuevasEvaluaciones[rac.id] = evaluacionExistente
+            ? evaluacionExistente.puntaje.toString()
+            : "";
         });
       });
-      
+
       setEvaluaciones(nuevasEvaluaciones);
     } catch (error) {
-      toast.error('Error al cargar evaluaciones del estudiante: ' + error.message);
+      toast.error(
+        "Error al cargar evaluaciones del estudiante: " + error.message
+      );
     }
   };
 
   const handlePuntajeChange = (racId, valor) => {
     // Validar que el valor esté entre 1 y 5
     const numValor = parseInt(valor);
-    if (valor === '' || (numValor >= 1 && numValor <= 5)) {
-      setEvaluaciones(prev => ({
+    if (valor === "" || (numValor >= 1 && numValor <= 5)) {
+      setEvaluaciones((prev) => ({
         ...prev,
-        [racId]: valor
+        [racId]: valor,
       }));
     }
   };
 
   const validarEvaluaciones = () => {
-    const evaluacionesVacias = Object.values(evaluaciones).filter(valor => valor === '').length;
+    const evaluacionesVacias = Object.values(evaluaciones).filter(
+      (valor) => valor === ""
+    ).length;
     if (evaluacionesVacias > 0) {
       toast.error(`Faltan ${evaluacionesVacias} evaluaciones por completar`);
       return false;
@@ -100,29 +151,31 @@ const EvaluacionEstudiantesPage = () => {
 
     try {
       setGuardando(true);
-      
+
       // Preparar datos para envío masivo
       const evaluacionesParaGuardar = [];
-      Object.values(racsPorGac).forEach(racsGac => {
-        racsGac.forEach(rac => {
+      Object.values(racsPorGac).forEach((racsGac) => {
+        racsGac.forEach((rac) => {
           if (evaluaciones[rac.id]) {
             evaluacionesParaGuardar.push({
               rac_id: rac.id,
-              puntaje: parseInt(evaluaciones[rac.id])
+              puntaje: parseInt(evaluaciones[rac.id]),
             });
           }
         });
       });
 
-      await evaluacionApi.crearEvaluacionesMasivas(estudianteSeleccionado.id, evaluacionesParaGuardar);
-      
-      toast.success('Evaluaciones guardadas correctamente');
-      
+      await evaluacionApi.crearEvaluacionesMasivas(
+        estudianteSeleccionado.id,
+        evaluacionesParaGuardar
+      );
+
+      toast.success("Evaluaciones guardadas correctamente");
+
       // Recargar evaluaciones para mostrar datos actualizados
       await handleEstudianteChange(estudianteSeleccionado.id);
-      
     } catch (error) {
-      toast.error('Error al guardar evaluaciones: ' + error.message);
+      toast.error("Error al guardar evaluaciones: " + error.message);
     } finally {
       setGuardando(false);
     }
@@ -130,8 +183,8 @@ const EvaluacionEstudiantesPage = () => {
 
   const guardarEvaluacionIndividual = async (racId) => {
     const puntaje = evaluaciones[racId];
-    if (!puntaje || puntaje === '') {
-      toast.error('Debe ingresar un puntaje para este RAC');
+    if (!puntaje || puntaje === "") {
+      toast.error("Debe ingresar un puntaje para este RAC");
       return;
     }
 
@@ -141,33 +194,10 @@ const EvaluacionEstudiantesPage = () => {
         racId,
         parseInt(puntaje)
       );
-      
-      toast.success('Evaluación guardada correctamente');
-    } catch (error) {
-      toast.error('Error al guardar evaluación: ' + error.message);
-    }
-  };
 
-  const regenerarRACsAleatorios = async () => {
-    try {
-      setLoading(true);
-      const racsData = await evaluacionApi.obtenerRACsAleatoriosPorGAC();
-      setRacsPorGac(racsData.racs_por_gac);
-      
-      // Reinicializar evaluaciones
-      const evaluacionesIniciales = {};
-      Object.values(racsData.racs_por_gac).forEach(racsGac => {
-        racsGac.forEach(rac => {
-          evaluacionesIniciales[rac.id] = '';
-        });
-      });
-      setEvaluaciones(evaluacionesIniciales);
-      
-      toast.success('RACs regenerados aleatoriamente');
+      toast.success("Evaluación guardada correctamente");
     } catch (error) {
-      toast.error('Error al regenerar RACs: ' + error.message);
-    } finally {
-      setLoading(false);
+      toast.error("Error al guardar evaluación: " + error.message);
     }
   };
 
@@ -190,67 +220,103 @@ const EvaluacionEstudiantesPage = () => {
           <div className="flex items-center gap-3 mb-4">
             <FaUserGraduate className="text-3xl text-blue-600" />
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">Evaluación de Estudiantes</h1>
-              <p className="text-gray-600">Asigne calificaciones a los estudiantes para cada RAC (3 por GAC)</p>
+              <h1 className="text-3xl font-bold text-gray-800">
+                Evaluación de Estudiantes
+              </h1>
+              <p className="text-gray-600">
+                Seleccione una materia para ver los GACs disponibles y evalúe a
+                los estudiantes
+              </p>
             </div>
           </div>
-          
-          <div className="flex items-center justify-between">
-            {/* Selector de Estudiante */}
-            <div className="max-w-md">
-              <label htmlFor="estudiante" className="block text-sm font-medium text-gray-700 mb-2">
-                Seleccionar Estudiante
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Selector de Materia */}
+            <div>
+              <label
+                htmlFor="materia"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Seleccionar Materia
               </label>
               <select
-                id="estudiante"
-                value={estudianteSeleccionado?.id || ''}
-                onChange={(e) => handleEstudianteChange(e.target.value)}
+                id="materia"
+                value={materiaSeleccionada?.id || ""}
+                onChange={(e) => handleMateriaChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="">-- Seleccione un estudiante --</option>
-                {estudiantes.map(estudiante => (
-                  <option key={estudiante.id} value={estudiante.id}>
-                    {estudiante.nombre} - {estudiante.grupo} ({estudiante.documento})
+                <option value="">-- Seleccione una materia --</option>
+                {materias.map((materia) => (
+                  <option key={materia.id} value={materia.id}>
+                    {materia.nombre}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Botón para regenerar RACs */}
-            <button
-              onClick={regenerarRACsAleatorios}
-              className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors flex items-center gap-2"
-              title="Regenerar RACs aleatorios"
-            >
-              <FaRandom className="w-4 h-4" />
-              Regenerar RACs
-            </button>
+            {/* Selector de Estudiante */}
+            <div>
+              <label
+                htmlFor="estudiante"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Seleccionar Estudiante
+              </label>
+              <select
+                id="estudiante"
+                value={estudianteSeleccionado?.id || ""}
+                onChange={(e) => handleEstudianteChange(e.target.value)}
+                disabled={!materiaSeleccionada}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="">-- Seleccione un estudiante --</option>
+                {estudiantes.map((estudiante) => (
+                  <option key={estudiante.id} value={estudiante.id}>
+                    {estudiante.nombre} - {estudiante.grupo} (
+                    {estudiante.documento})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
         {/* Formulario de Evaluación */}
-        {estudianteSeleccionado && (
+        {estudianteSeleccionado && materiaSeleccionada && (
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="mb-6">
               <h2 className="text-2xl font-semibold text-gray-800 mb-2">
                 Evaluando: {estudianteSeleccionado.nombre}
               </h2>
-              <p className="text-gray-600">
-                Grupo: {estudianteSeleccionado.grupo} | Documento: {estudianteSeleccionado.documento}
+              <p className="text-gray-600 mb-2">
+                Grupo: {estudianteSeleccionado.grupo} | Documento:{" "}
+                {estudianteSeleccionado.documento}
+              </p>
+              <p className="text-blue-600 font-medium">
+                Materia: {materiaSeleccionada.nombre}
               </p>
             </div>
 
             {/* RACs organizados por GAC */}
             <div className="space-y-8">
               {Object.entries(racsPorGac).map(([gacNumero, racs]) => (
-                <div key={gacNumero} className="border border-gray-200 rounded-lg p-6">
+                <div
+                  key={gacNumero}
+                  className="border border-gray-200 rounded-lg p-6"
+                >
                   <h3 className="text-xl font-semibold text-gray-800 mb-4 bg-blue-50 p-3 rounded-md">
-                    GAC {gacNumero} - {racs.length} RACs seleccionados
+                    GAC {gacNumero} - {racs.length} RACs
                   </h3>
-                  
+                  <p className="text-sm text-gray-600 mb-4 pl-3">
+                    {racs[0]?.gac_descripcion || "Descripción no disponible"}
+                  </p>
+
                   <div className="space-y-4">
-                    {racs.map(rac => (
-                      <div key={rac.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    {racs.map((rac) => (
+                      <div
+                        key={rac.id}
+                        className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                      >
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-center">
                           {/* Descripción del RAC */}
                           <div className="lg:col-span-2">
@@ -265,13 +331,18 @@ const EvaluacionEstudiantesPage = () => {
                           {/* Campo de Puntaje */}
                           <div className="flex items-center gap-3">
                             <div className="flex-1">
-                              <label htmlFor={`puntaje-${rac.id}`} className="block text-sm font-medium text-gray-700 mb-1">
+                              <label
+                                htmlFor={`puntaje-${rac.id}`}
+                                className="block text-sm font-medium text-gray-700 mb-1"
+                              >
                                 Puntaje
                               </label>
                               <select
                                 id={`puntaje-${rac.id}`}
-                                value={evaluaciones[rac.id] || ''}
-                                onChange={(e) => handlePuntajeChange(rac.id, e.target.value)}
+                                value={evaluaciones[rac.id] || ""}
+                                onChange={(e) =>
+                                  handlePuntajeChange(rac.id, e.target.value)
+                                }
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                               >
                                 <option value="">-- Seleccione --</option>
@@ -282,11 +353,16 @@ const EvaluacionEstudiantesPage = () => {
                                 <option value="5">5 - Excelente</option>
                               </select>
                             </div>
-                            
+
                             {/* Botón para guardar individual */}
                             <button
-                              onClick={() => guardarEvaluacionIndividual(rac.id)}
-                              disabled={!evaluaciones[rac.id] || evaluaciones[rac.id] === ''}
+                              onClick={() =>
+                                guardarEvaluacionIndividual(rac.id)
+                              }
+                              disabled={
+                                !evaluaciones[rac.id] ||
+                                evaluaciones[rac.id] === ""
+                              }
                               className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                               title="Guardar evaluación individual"
                             >
@@ -308,10 +384,13 @@ const EvaluacionEstudiantesPage = () => {
                   <FaExclamationTriangle className="inline w-4 h-4 mr-2 text-yellow-500" />
                   Complete todas las evaluaciones antes de guardar
                 </div>
-                
+
                 <button
                   onClick={guardarEvaluaciones}
-                  disabled={guardando || Object.values(evaluaciones).some(valor => valor === '')}
+                  disabled={
+                    guardando ||
+                    Object.values(evaluaciones).some((valor) => valor === "")
+                  }
                   className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                 >
                   {guardando ? (
@@ -331,15 +410,19 @@ const EvaluacionEstudiantesPage = () => {
           </div>
         )}
 
-        {/* Mensaje cuando no hay estudiante seleccionado */}
-        {!estudianteSeleccionado && (
+        {/* Mensaje cuando no hay selección */}
+        {(!estudianteSeleccionado || !materiaSeleccionada) && (
           <div className="bg-white rounded-lg shadow-md p-12 text-center">
             <FaUserGraduate className="text-6xl text-gray-300 mx-auto mb-4" />
             <h3 className="text-xl font-medium text-gray-600 mb-2">
-              Seleccione un estudiante para comenzar
+              {!materiaSeleccionada
+                ? "Seleccione una materia para comenzar"
+                : "Seleccione un estudiante para comenzar"}
             </h3>
             <p className="text-gray-500">
-              Use el selector de arriba para elegir el estudiante que desea evaluar
+              {!materiaSeleccionada
+                ? "Primero seleccione una materia para ver los GACs disponibles"
+                : "Use el selector de arriba para elegir el estudiante que desea evaluar"}
             </p>
           </div>
         )}

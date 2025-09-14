@@ -119,7 +119,7 @@ export const useUserApi = () => {
         {
           headers: {
             Authorization: `Token ${token}`,
-            'Content-Type': 'multipart/form-data',
+            "Content-Type": "multipart/form-data",
           },
         }
       );
@@ -142,7 +142,7 @@ export const useUserApi = () => {
       }
 
       // Extraer solo los campos necesarios para el registro
-      const { cedula, nombre, correo, password } = datos;
+      const { cedula, nombre, correo, password, materias = [] } = datos;
 
       // Crear el payload con el nombre correcto del campo "contrasenia"
       const payload = {
@@ -150,6 +150,7 @@ export const useUserApi = () => {
         nombre,
         correo,
         contrasenia: password, // Django espera "contrasenia", no "password"
+        materias: materias, // Incluir materias
       };
 
       setLoading(true);
@@ -179,17 +180,21 @@ export const useUserApi = () => {
     if (!token) throw new Error("Token no encontrado");
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
 
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.post(`${API_URL}/import-excel-profesores/`, formData, {
-        headers: {
-          Authorization: `Token ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await axios.post(
+        `${API_URL}/import-excel-profesores/`,
+        formData,
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
       return response.data;
     } catch (error) {
       console.error("Error al importar Excel:", error);
@@ -208,30 +213,33 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${API_URL}/api/export-excel-profesores/`, {
-        headers: {
-          Authorization: `Token ${token}`,
-        },
-        responseType: 'blob', // Importante para archivos
-      });
-      
+      const response = await axios.get(
+        `${API_URL}/api/export-excel-profesores/`,
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+          responseType: "blob", // Importante para archivos
+        }
+      );
+
       // Obtener nombre del archivo desde headers si el backend lo envía
-      const contentDisposition = response.headers['content-disposition'];
-      const filename = contentDisposition 
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : `profesores_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
+      const contentDisposition = response.headers["content-disposition"];
+      const filename = contentDisposition
+        ? contentDisposition.split("filename=")[1]?.replace(/"/g, "")
+        : `profesores_${new Date().toISOString().split("T")[0]}.xlsx`;
+
       // Crear URL para descargar el archivo
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', filename);
+      link.setAttribute("download", filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
-      return { success: true, message: 'Archivo descargado exitosamente' };
+
+      return { success: true, message: "Archivo descargado exitosamente" };
     } catch (error) {
       console.error("Error al exportar Excel de profesores:", error);
       setError(error.message);
@@ -331,11 +339,15 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.post(`${API_URL}/api/register-estudiante/`, datos, {
-        headers: {
-          Authorization: `Token ${token}`,
-        },
-      });
+      const response = await axios.post(
+        `${API_URL}/api/register-estudiante/`,
+        datos,
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+        }
+      );
       return response.data;
     } catch (error) {
       console.error(
@@ -357,11 +369,15 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.put(`${API_URL}/api/estudiante/${id}/`, data, {
-        headers: {
-          Authorization: `Token ${token}`,
-        },
-      });
+      const response = await axios.put(
+        `${API_URL}/api/estudiante/${id}/`,
+        data,
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+        }
+      );
       return response.data;
     } catch (error) {
       console.error("Error al actualizar estudiante:", error);
@@ -401,17 +417,21 @@ export const useUserApi = () => {
     if (!token) throw new Error("Token no encontrado");
 
     const formData = new FormData();
-    formData.append('file', file);
-    
+    formData.append("file", file);
+
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.post(`${API_URL}/api/import-excel-estudiantes/`, formData, {
-        headers: {
-          Authorization: `Token ${token}`,
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await axios.post(
+        `${API_URL}/api/import-excel-estudiantes/`,
+        formData,
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
       return response.data;
     } catch (error) {
       console.error("Error al importar Excel de estudiantes:", error);
@@ -430,30 +450,33 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${API_URL}/api/export-excel-estudiantes/`, {
-        headers: {
-          Authorization: `Token ${token}`,
-        },
-        responseType: 'blob', // Importante para archivos
-      });
-      
+      const response = await axios.get(
+        `${API_URL}/api/export-excel-estudiantes/`,
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+          responseType: "blob", // Importante para archivos
+        }
+      );
+
       // Obtener nombre del archivo desde headers si el backend lo envía
-      const contentDisposition = response.headers['content-disposition'];
-      const filename = contentDisposition 
-        ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-        : `estudiantes_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
+      const contentDisposition = response.headers["content-disposition"];
+      const filename = contentDisposition
+        ? contentDisposition.split("filename=")[1]?.replace(/"/g, "")
+        : `estudiantes_${new Date().toISOString().split("T")[0]}.xlsx`;
+
       // Crear URL para descargar el archivo
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', filename);
+      link.setAttribute("download", filename);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
-      return { success: true, message: 'Archivo descargado exitosamente' };
+
+      return { success: true, message: "Archivo descargado exitosamente" };
     } catch (error) {
       console.error("Error al exportar Excel de estudiantes:", error);
       setError(error.message);
@@ -471,11 +494,14 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${API_URL}/api/estudiantes-por-grupo/${grupo}/`, {
-        headers: {
-          Authorization: `Token ${token}`,
-        },
-      });
+      const response = await axios.get(
+        `${API_URL}/api/estudiantes-por-grupo/${grupo}/`,
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+        }
+      );
       return response.data;
     } catch (error) {
       console.error("Error al obtener estudiantes por grupo:", error);
@@ -532,11 +558,37 @@ export const useUserApi = () => {
     }
   }, []);
 
+  // Obtener todas las materias
+  const getMaterias = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Token no encontrado");
+
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await axios.get(
+        `http://localhost:8000/competencias/api/materias/`,
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error al obtener materias:", error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     // Estados
     loading,
     error,
-    
+
     // Funciones de profesores
     getProfesores,
     getProfesor,
@@ -546,11 +598,14 @@ export const useUserApi = () => {
     registerProfesor,
     importExcelProfesores,
     exportProfesoresExcel,
-    
+
     // Funciones de perfil
     actualizarPerfil,
     getCurrentUser,
-    
+
+    // Funciones de materias
+    getMaterias,
+
     // Funciones de estudiantes
     getEstudiantes,
     getEstudiante,
@@ -561,7 +616,7 @@ export const useUserApi = () => {
     exportEstudiantesExcel,
     getEstudiantesPorGrupo,
     getGrupos,
-    
+
     // Helpers
     getAuthHeaders,
   };
@@ -649,7 +704,7 @@ export const registerProfesor = async (datos) => {
     }
 
     // Extraer solo los campos necesarios para el registro
-    const { cedula, nombre, correo, password } = datos;
+    const { cedula, nombre, correo, password, materias = [] } = datos;
 
     // Crear el payload con el nombre correcto del campo "contrasenia"
     const payload = {
@@ -657,6 +712,7 @@ export const registerProfesor = async (datos) => {
       nombre,
       correo,
       contrasenia: password, // Django espera "contrasenia", no "password"
+      materias: materias, // Incluir materias
     };
 
     const response = await axios.post(`${API_URL}/register/`, payload, {
@@ -680,15 +736,19 @@ export const importExcelProfesores = async (file) => {
   if (!token) throw new Error("Token no encontrado");
 
   const formData = new FormData();
-  formData.append('file', file);
+  formData.append("file", file);
 
   try {
-    const response = await axios.post(`${API_URL}/import-excel-profesores/`, formData, {
-      headers: {
-        Authorization: `Token ${token}`,
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await axios.post(
+      `${API_URL}/import-excel-profesores/`,
+      formData,
+      {
+        headers: {
+          Authorization: `Token ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
     return response.data;
   } catch (error) {
     console.error("Error al importar Excel:", error);
@@ -701,30 +761,33 @@ export const exportProfesoresExcel = async () => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.get(`${API_URL}/api/export-excel-profesores/`, {
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-      responseType: 'blob', // Importante para archivos
-    });
-    
+    const response = await axios.get(
+      `${API_URL}/api/export-excel-profesores/`,
+      {
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+        responseType: "blob", // Importante para archivos
+      }
+    );
+
     // Obtener nombre del archivo desde headers si el backend lo envía
-    const contentDisposition = response.headers['content-disposition'];
-    const filename = contentDisposition 
-      ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-      : `profesores_${new Date().toISOString().split('T')[0]}.xlsx`;
-    
+    const contentDisposition = response.headers["content-disposition"];
+    const filename = contentDisposition
+      ? contentDisposition.split("filename=")[1]?.replace(/"/g, "")
+      : `profesores_${new Date().toISOString().split("T")[0]}.xlsx`;
+
     // Crear URL para descargar el archivo
     const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.setAttribute('download', filename);
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
-    
-    return { success: true, message: 'Archivo descargado exitosamente' };
+
+    return { success: true, message: "Archivo descargado exitosamente" };
   } catch (error) {
     console.error("Error al exportar Excel de profesores:", error);
     throw error;
@@ -791,11 +854,15 @@ export const registerEstudiante = async (datos) => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.post(`${API_URL}/api/register-estudiante/`, datos, {
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-    });
+    const response = await axios.post(
+      `${API_URL}/api/register-estudiante/`,
+      datos,
+      {
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+      }
+    );
     return response.data;
   } catch (error) {
     console.error(
@@ -845,15 +912,19 @@ export const importExcelEstudiantes = async (file) => {
   if (!token) throw new Error("Token no encontrado");
 
   const formData = new FormData();
-  formData.append('file', file);
-  
+  formData.append("file", file);
+
   try {
-    const response = await axios.post(`${API_URL}/api/import-excel-estudiantes/`, formData, {
-      headers: {
-        Authorization: `Token ${token}`,
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    const response = await axios.post(
+      `${API_URL}/api/import-excel-estudiantes/`,
+      formData,
+      {
+        headers: {
+          Authorization: `Token ${token}`,
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
     return response.data;
   } catch (error) {
     console.error("Error al importar Excel de estudiantes:", error);
@@ -866,30 +937,33 @@ export const exportEstudiantesExcel = async () => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.get(`${API_URL}/api/export-excel-estudiantes/`, {
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-      responseType: 'blob', // Importante para archivos
-    });
-    
+    const response = await axios.get(
+      `${API_URL}/api/export-excel-estudiantes/`,
+      {
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+        responseType: "blob", // Importante para archivos
+      }
+    );
+
     // Obtener nombre del archivo desde headers si el backend lo envía
-    const contentDisposition = response.headers['content-disposition'];
-    const filename = contentDisposition 
-      ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
-      : `estudiantes_${new Date().toISOString().split('T')[0]}.xlsx`;
-    
+    const contentDisposition = response.headers["content-disposition"];
+    const filename = contentDisposition
+      ? contentDisposition.split("filename=")[1]?.replace(/"/g, "")
+      : `estudiantes_${new Date().toISOString().split("T")[0]}.xlsx`;
+
     // Crear URL para descargar el archivo
     const url = window.URL.createObjectURL(new Blob([response.data]));
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = url;
-    link.setAttribute('download', filename);
+    link.setAttribute("download", filename);
     document.body.appendChild(link);
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
-    
-    return { success: true, message: 'Archivo descargado exitosamente' };
+
+    return { success: true, message: "Archivo descargado exitosamente" };
   } catch (error) {
     console.error("Error al exportar Excel de estudiantes:", error);
     throw error;
@@ -901,11 +975,14 @@ export const getEstudiantesPorGrupo = async (grupo) => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.get(`${API_URL}/api/estudiantes-por-grupo/${grupo}/`, {
-      headers: {
-        Authorization: `Token ${token}`,
-      },
-    });
+    const response = await axios.get(
+      `${API_URL}/api/estudiantes-por-grupo/${grupo}/`,
+      {
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+      }
+    );
     return response.data;
   } catch (error) {
     console.error("Error al obtener estudiantes por grupo:", error);

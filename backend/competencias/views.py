@@ -595,3 +595,434 @@ def resultados_globales(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def informes_por_gac_semestre(request):
+    """Obtener promedios de GAC por semestre"""
+    try:
+        # Definir grupos por semestre
+        primer_semestre = ['Virtual 1', '1A', '1B', '1C']
+        segundo_semestre = ['2A', '2B', '2C']
+        
+        # Obtener evaluaciones agrupadas por GAC y semestre
+        evaluaciones = Evaluacion.objects.select_related('estudiante', 'rac').prefetch_related('rac__gacs').all()
+        
+        # Verificar si hay evaluaciones
+        if not evaluaciones.exists():
+            return JsonResponse({
+                'gacs_por_semestre': [],
+                'message': 'No hay evaluaciones disponibles'
+            }, safe=False)
+        
+        # Agrupar por GAC y semestre
+        gacs_data = {}
+        
+        for evaluacion in evaluaciones:
+            try:
+                grupo = evaluacion.estudiante.grupo
+                
+                # Determinar semestre
+                if grupo in primer_semestre:
+                    semestre = 'Primer Semestre'
+                elif grupo in segundo_semestre:
+                    semestre = 'Segundo Semestre'
+                else:
+                    continue  # Saltar grupos que no pertenecen a ningún semestre
+                
+                # Un RAC puede tener múltiples GACs
+                for gac in evaluacion.rac.gacs.all():
+                    gac_numero = gac.numero
+                    
+                    if gac_numero not in gacs_data:
+                        gacs_data[gac_numero] = {
+                            'gac_numero': gac_numero,
+                            'gac_descripcion': gac.descripcion,
+                            'primer_semestre': {'puntajes': [], 'promedio': 0},
+                            'segundo_semestre': {'puntajes': [], 'promedio': 0}
+                        }
+                    
+                    gacs_data[gac_numero][f"{semestre.lower().replace(' ', '_')}"]['puntajes'].append(evaluacion.puntaje)
+            except Exception as e:
+                print(f"Error procesando evaluación {evaluacion.id}: {e}")
+                continue
+        
+        # Calcular promedios
+        resultado = []
+        for gac_data in gacs_data.values():
+            # Primer semestre
+            if gac_data['primer_semestre']['puntajes']:
+                gac_data['primer_semestre']['promedio'] = sum(gac_data['primer_semestre']['puntajes']) / len(gac_data['primer_semestre']['puntajes'])
+                gac_data['primer_semestre']['total_evaluaciones'] = len(gac_data['primer_semestre']['puntajes'])
+            else:
+                gac_data['primer_semestre']['total_evaluaciones'] = 0
+            
+            # Segundo semestre
+            if gac_data['segundo_semestre']['puntajes']:
+                gac_data['segundo_semestre']['promedio'] = sum(gac_data['segundo_semestre']['puntajes']) / len(gac_data['segundo_semestre']['puntajes'])
+                gac_data['segundo_semestre']['total_evaluaciones'] = len(gac_data['segundo_semestre']['puntajes'])
+            else:
+                gac_data['segundo_semestre']['total_evaluaciones'] = 0
+            
+            # Limpiar datos
+            del gac_data['primer_semestre']['puntajes']
+            del gac_data['segundo_semestre']['puntajes']
+            
+            resultado.append(gac_data)
+        
+        return JsonResponse({'gacs_por_semestre': resultado}, safe=False)
+        
+    except Exception as e:
+        print(f"Error en informes_por_gac_semestre: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def informes_por_profesor_materia(request):
+    """Obtener promedios por profesor y materia con semaforización"""
+    try:
+        # Obtener evaluaciones con información de profesor, materia y estudiante
+        evaluaciones = Evaluacion.objects.select_related(
+            'profesor', 'estudiante', 'rac'
+        ).prefetch_related('rac__materias').all()
+        
+        # Verificar si hay evaluaciones
+        if not evaluaciones.exists():
+            return JsonResponse({
+                'profesores_materias': [],
+                'message': 'No hay evaluaciones disponibles'
+            }, safe=False)
+        
+        # Agrupar por profesor y materia
+        profesores_data = {}
+        
+        for evaluacion in evaluaciones:
+            try:
+                profesor_id = evaluacion.profesor.id
+                profesor_nombre = evaluacion.profesor.nombre
+                
+                # Obtener materias del RAC
+                materias = evaluacion.rac.materias.all()
+                
+                for materia in materias:
+                    materia_id = materia.id
+                    materia_nombre = materia.nombre
+                    
+                    key = f"{profesor_id}_{materia_id}"
+                    
+                    if key not in profesores_data:
+                        profesores_data[key] = {
+                            'profesor_id': profesor_id,
+                            'profesor_nombre': profesor_nombre,
+                            'materia_id': materia_id,
+                            'materia_nombre': materia_nombre,
+                            'puntajes': [],
+                            'estudiantes_evaluados': set(),
+                            'total_estudiantes': 0
+                        }
+                    
+                    profesores_data[key]['puntajes'].append(evaluacion.puntaje)
+                    profesores_data[key]['estudiantes_evaluados'].add(evaluacion.estudiante.id)
+            except Exception as e:
+                print(f"Error procesando evaluación {evaluacion.id}: {e}")
+                continue
+        
+        # Calcular total de estudiantes por materia (todos los estudiantes que tienen RACs de esa materia)
+        from django.db.models import Count
+        for key, data in profesores_data.items():
+            try:
+                materia_id = data['materia_id']
+                # Contar estudiantes únicos que tienen RACs de esta materia
+                total_estudiantes = Evaluacion.objects.filter(
+                    rac__materias__id=materia_id
+                ).values('estudiante').distinct().count()
+                data['total_estudiantes'] = total_estudiantes
+            except Exception as e:
+                print(f"Error calculando total estudiantes para materia {data['materia_id']}: {e}")
+                data['total_estudiantes'] = 0
+        
+        # Calcular promedios y porcentajes
+        resultado = []
+        for data in profesores_data.values():
+            if data['puntajes']:
+                promedio = sum(data['puntajes']) / len(data['puntajes'])
+                estudiantes_evaluados = len(data['estudiantes_evaluados'])
+                total_estudiantes = data['total_estudiantes']
+                
+                # Calcular porcentaje de evaluación
+                porcentaje_evaluacion = (estudiantes_evaluados / total_estudiantes * 100) if total_estudiantes > 0 else 0
+                
+                # Semaforización
+                if porcentaje_evaluacion <= 30:
+                    color_semaforo = 'rojo'
+                elif porcentaje_evaluacion <= 60:
+                    color_semaforo = 'amarillo'
+                else:
+                    color_semaforo = 'verde'
+                
+                resultado.append({
+                    'profesor_id': data['profesor_id'],
+                    'profesor_nombre': data['profesor_nombre'],
+                    'materia_id': data['materia_id'],
+                    'materia_nombre': data['materia_nombre'],
+                    'promedio': round(promedio, 2),
+                    'estudiantes_evaluados': estudiantes_evaluados,
+                    'total_estudiantes': total_estudiantes,
+                    'porcentaje_evaluacion': round(porcentaje_evaluacion, 1),
+                    'color_semaforo': color_semaforo
+                })
+        
+        return JsonResponse({'profesores_materias': resultado}, safe=False)
+        
+    except Exception as e:
+        print(f"Error en informes_por_profesor_materia: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def informes_por_estudiante_profesores(request):
+    """Obtener promedios por estudiante y profesores evaluadores"""
+    try:
+        # Obtener evaluaciones con información de estudiante y profesor
+        evaluaciones = Evaluacion.objects.select_related(
+            'estudiante', 'profesor'
+        ).all()
+        
+        # Agrupar por estudiante
+        estudiantes_data = {}
+        
+        for evaluacion in evaluaciones:
+            estudiante_id = evaluacion.estudiante.id
+            estudiante_nombre = evaluacion.estudiante.nombre
+            estudiante_grupo = evaluacion.estudiante.grupo
+            
+            if estudiante_id not in estudiantes_data:
+                estudiantes_data[estudiante_id] = {
+                    'estudiante_id': estudiante_id,
+                    'estudiante_nombre': estudiante_nombre,
+                    'estudiante_grupo': estudiante_grupo,
+                    'puntajes': [],
+                    'profesores_evaluadores': set()
+                }
+            
+            estudiantes_data[estudiante_id]['puntajes'].append(evaluacion.puntaje)
+            estudiantes_data[estudiante_id]['profesores_evaluadores'].add(evaluacion.profesor.nombre)
+        
+        # Calcular promedios
+        resultado = []
+        for data in estudiantes_data.values():
+            if data['puntajes']:
+                promedio = sum(data['puntajes']) / len(data['puntajes'])
+                
+                resultado.append({
+                    'estudiante_id': data['estudiante_id'],
+                    'estudiante_nombre': data['estudiante_nombre'],
+                    'estudiante_grupo': data['estudiante_grupo'],
+                    'promedio': round(promedio, 2),
+                    'total_evaluaciones': len(data['puntajes']),
+                    'profesores_evaluadores': list(data['profesores_evaluadores'])
+                })
+        
+        # Ordenar por promedio descendente
+        resultado.sort(key=lambda x: x['promedio'], reverse=True)
+        
+        return JsonResponse({'estudiantes_profesores': resultado}, safe=False)
+        
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def informes_detalle_profesor_materia(request, profesor_id, materia_id):
+    """Obtener detalle de estudiantes evaluados por un profesor en una materia específica"""
+    try:
+        # Obtener evaluaciones del profesor en la materia específica
+        evaluaciones = Evaluacion.objects.filter(
+            profesor_id=profesor_id,
+            rac__materias__id=materia_id
+        ).select_related('estudiante', 'rac').all()
+        
+        # Obtener información del profesor y materia
+        from usuarios.models import Profesor
+        from .models import Materia
+        
+        try:
+            profesor = Profesor.objects.get(id=profesor_id)
+            materia = Materia.objects.get(id=materia_id)
+        except (Profesor.DoesNotExist, Materia.DoesNotExist):
+            return JsonResponse({"error": "Profesor o materia no encontrado"}, status=404)
+        
+        # Agrupar por estudiante
+        estudiantes_data = {}
+        
+        for evaluacion in evaluaciones:
+            estudiante_id = evaluacion.estudiante.id
+            estudiante_nombre = evaluacion.estudiante.nombre
+            estudiante_grupo = evaluacion.estudiante.grupo
+            
+            if estudiante_id not in estudiantes_data:
+                estudiantes_data[estudiante_id] = {
+                    'estudiante_id': estudiante_id,
+                    'estudiante_nombre': estudiante_nombre,
+                    'estudiante_grupo': estudiante_grupo,
+                    'evaluaciones': []
+                }
+            
+            estudiantes_data[estudiante_id]['evaluaciones'].append({
+                'rac_numero': evaluacion.rac.numero,
+                'rac_descripcion': evaluacion.rac.descripcion,
+                'puntaje': evaluacion.puntaje,
+                'fecha': evaluacion.fecha
+            })
+        
+        # Calcular promedios por estudiante
+        resultado = []
+        for data in estudiantes_data.values():
+            puntajes = [eval['puntaje'] for eval in data['evaluaciones']]
+            promedio = sum(puntajes) / len(puntajes) if puntajes else 0
+            
+            resultado.append({
+                'estudiante_id': data['estudiante_id'],
+                'estudiante_nombre': data['estudiante_nombre'],
+                'estudiante_grupo': data['estudiante_grupo'],
+                'promedio': round(promedio, 2),
+                'total_evaluaciones': len(data['evaluaciones']),
+                'evaluaciones': data['evaluaciones']
+            })
+        
+        # Ordenar por promedio descendente
+        resultado.sort(key=lambda x: x['promedio'], reverse=True)
+        
+        return JsonResponse({
+            'profesor_nombre': profesor.nombre,
+            'materia_nombre': materia.nombre,
+            'estudiantes': resultado
+        }, safe=False)
+        
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def debug_datos(request):
+    """API de debug para verificar datos en la base de datos"""
+    try:
+        # Contar registros
+        total_evaluaciones = Evaluacion.objects.count()
+        total_estudiantes = Estudiante.objects.count()
+        total_profesores = Profesor.objects.count()
+        total_gacs = GAC.objects.count()
+        total_racs = RAC.objects.count()
+        total_materias = Materia.objects.count()
+        
+        # Obtener algunos ejemplos
+        evaluaciones_ejemplo = list(Evaluacion.objects.select_related('estudiante', 'profesor', 'rac__gacs').values(
+            'id', 'puntaje', 'estudiante__nombre', 'estudiante__grupo', 
+            'profesor__nombre', 'rac__numero', 'rac__gacs__numero'
+        )[:5])
+        
+        estudiantes_ejemplo = list(Estudiante.objects.values('id', 'nombre', 'grupo')[:5])
+        
+        return JsonResponse({
+            'conteos': {
+                'evaluaciones': total_evaluaciones,
+                'estudiantes': total_estudiantes,
+                'profesores': total_profesores,
+                'gacs': total_gacs,
+                'racs': total_racs,
+                'materias': total_materias
+            },
+            'evaluaciones_ejemplo': evaluaciones_ejemplo,
+            'estudiantes_ejemplo': estudiantes_ejemplo
+        }, safe=False)
+        
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def obtener_materias_profesor(request):
+    """Obtener materias asignadas al profesor autenticado"""
+    try:
+        profesor = request.user
+        
+        # Verificar que el usuario es un profesor
+        if not hasattr(profesor, 'materias'):
+            return JsonResponse({"error": "Usuario no es un profesor"}, status=400)
+        
+        materias = profesor.materias.all()
+        
+        materias_data = []
+        for materia in materias:
+            materias_data.append({
+                'id': materia.id,
+                'nombre': materia.nombre,
+                'descripcion': materia.descripcion
+            })
+        
+        return JsonResponse({'materias': materias_data}, safe=False)
+        
+    except Exception as e:
+        print(f"Error en obtener_materias_profesor: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def obtener_gacs_por_materia(request, materia_id):
+    """Obtener GACs relacionados a una materia específica"""
+    try:
+        from .models import Materia, RAC
+        
+        # Verificar que la materia existe
+        try:
+            materia = Materia.objects.get(id=materia_id)
+        except Materia.DoesNotExist:
+            return JsonResponse({"error": "Materia no encontrada"}, status=404)
+        
+        # Obtener RACs que pertenecen a esta materia
+        racs = RAC.objects.filter(materias__id=materia_id).prefetch_related('gacs')
+        
+        # Agrupar RACs por GAC
+        gacs_data = {}
+        for rac in racs:
+            # Un RAC puede tener múltiples GACs
+            for gac in rac.gacs.all():
+                gac_numero = gac.numero
+                if gac_numero not in gacs_data:
+                    gacs_data[gac_numero] = {
+                        'gac_numero': gac_numero,
+                        'gac_descripcion': gac.descripcion,
+                        'racs': []
+                    }
+                
+                gacs_data[gac_numero]['racs'].append({
+                    'id': rac.id,
+                    'numero': rac.numero,
+                    'descripcion': rac.descripcion
+                })
+        
+        # Seleccionar solo 3 RACs por GAC (aleatoriamente)
+        import random
+        resultado = []
+        for gac_data in gacs_data.values():
+            # Mezclar los RACs y tomar solo 3
+            racs_disponibles = gac_data['racs']
+            random.shuffle(racs_disponibles)
+            gac_data['racs'] = racs_disponibles[:3]
+            resultado.append(gac_data)
+        
+        # Ordenar por número de GAC
+        resultado.sort(key=lambda x: x['gac_numero'])
+        
+        return JsonResponse({
+            'materia': {
+                'id': materia.id,
+                'nombre': materia.nombre,
+                'descripcion': materia.descripcion
+            },
+            'gacs': resultado
+        }, safe=False)
+        
+    except Exception as e:
+        print(f"Error en obtener_gacs_por_materia: {e}")
+        return JsonResponse({"error": str(e)}, status=500)

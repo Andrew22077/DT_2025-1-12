@@ -20,6 +20,15 @@ urlpatterns = [
     path('api/evaluaciones/estadisticas-por-gac/', views.estadisticas_por_gac, name='estadisticas_por_gac'),
     path('api/evaluaciones/resultados-estudiante/<int:estudiante_id>/', views.resultados_estudiante, name='resultados_estudiante'),
     path('api/evaluaciones/resultados-globales/', views.resultados_globales, name='resultados_globales'),
+    
+    # Nuevas APIs para informes
+    path('api/informes/gac-semestre/', views.informes_por_gac_semestre, name='informes_por_gac_semestre'),
+    path('api/informes/profesor-materia/', views.informes_por_profesor_materia, name='informes_por_profesor_materia'),
+    path('api/informes/estudiante-profesores/', views.informes_por_estudiante_profesores, name='informes_por_estudiante_profesores'),
+    path('api/informes/detalle-profesor-materia/<int:profesor_id>/<int:materia_id>/', views.informes_detalle_profesor_materia, name='informes_detalle_profesor_materia'),
+    path('api/debug-datos/', views.debug_datos, name='debug_datos'),
+    path('api/materias-profesor/', views.obtener_materias_profesor, name='obtener_materias_profesor'),
+    path('api/gacs-por-materia/<int:materia_id>/', views.obtener_gacs_por_materia, name='obtener_gacs_por_materia'),
 
     # Router URLs después (más generales)
     path('api/', include(router.urls)),

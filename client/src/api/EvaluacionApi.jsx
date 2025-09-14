@@ -228,6 +228,132 @@ export const useEvaluacionApi = () => {
     }
   };
 
+  // Nuevas funciones para informes
+  const obtenerInformesGACSemestre = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/informes/gac-semestre/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al obtener informes GAC por semestre");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error en obtenerInformesGACSemestre:", error);
+      throw error;
+    }
+  };
+
+  const obtenerInformesProfesorMateria = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/informes/profesor-materia/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al obtener informes por profesor y materia");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error en obtenerInformesProfesorMateria:", error);
+      throw error;
+    }
+  };
+
+  const obtenerInformesEstudianteProfesores = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/informes/estudiante-profesores/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          "Error al obtener informes por estudiante y profesores"
+        );
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error en obtenerInformesEstudianteProfesores:", error);
+      throw error;
+    }
+  };
+
+  const obtenerDetalleProfesorMateria = async (profesorId, materiaId) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/informes/detalle-profesor-materia/${profesorId}/${materiaId}/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al obtener detalle de profesor y materia");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error en obtenerDetalleProfesorMateria:", error);
+      throw error;
+    }
+  };
+
+  const obtenerMateriasProfesor = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/materias-profesor/`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al obtener materias del profesor");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error en obtenerMateriasProfesor:", error);
+      throw error;
+    }
+  };
+
+  const obtenerGACsPorMateria = async (materiaId) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/gacs-por-materia/${materiaId}/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al obtener GACs por materia");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error en obtenerGACsPorMateria:", error);
+      throw error;
+    }
+  };
+
   return {
     obtenerEstudiantes,
     obtenerRACs,
@@ -239,5 +365,11 @@ export const useEvaluacionApi = () => {
     obtenerEstadisticasPorGAC,
     obtenerResultadosEstudiante,
     obtenerResultadosGlobales,
+    obtenerInformesGACSemestre,
+    obtenerInformesProfesorMateria,
+    obtenerInformesEstudianteProfesores,
+    obtenerDetalleProfesorMateria,
+    obtenerMateriasProfesor,
+    obtenerGACsPorMateria,
   };
 };

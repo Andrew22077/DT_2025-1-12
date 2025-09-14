@@ -1,51 +1,112 @@
 from rest_framework import serializers
 from .models import Profesor
 from .models import Estudiante
+from competencias.models import Materia
+
+# Serializer para mostrar materias con detalle
+class MateriaDetalleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Materia
+        fields = ['id', 'nombre', 'descripcion']
 
 # Serializer para registro y login
 class ProfesorSerializer(serializers.ModelSerializer):
     contrasenia = serializers.CharField(write_only=True)
+    materias = serializers.PrimaryKeyRelatedField(
+        queryset=Materia.objects.all(), 
+        many=True, 
+        required=False
+    )
 
     class Meta:
         model = Profesor
-        fields = ['id', 'cedula', 'nombre', 'correo', 'contrasenia', 'is_active', 'is_staff']
+        fields = ['id', 'cedula', 'nombre', 'correo', 'contrasenia', 'is_active', 'is_staff', 'materias']
 
     def create(self, validated_data):
+        materias_data = validated_data.pop('materias', [])
         contrasenia = validated_data.pop('contrasenia')
         profesor = Profesor.objects.create_user(**validated_data, contrasenia=contrasenia)
+        profesor.materias.set(materias_data)
         return profesor
 
 # Serializer para mostrar datos en tabla
 class ProfesorTablaSerializer(serializers.ModelSerializer):
+    materias = MateriaDetalleSerializer(many=True, read_only=True)
+    
     class Meta:
         model = Profesor
-        fields = ['id', 'last_login', 'cedula', 'nombre', 'correo', 'is_active', 'is_staff']
+        fields = ['id', 'last_login', 'cedula', 'nombre', 'correo', 'is_active', 'is_staff', 'materias']
         read_only_fields = fields
 
 # Serializer para perfil completo (incluye foto)
 class ProfesorPerfilSerializer(serializers.ModelSerializer):
     foto_url = serializers.SerializerMethodField()
+    materias = serializers.SerializerMethodField()
     
     class Meta:
         model = Profesor
-        fields = ['id', 'cedula', 'nombre', 'correo', 'foto', 'foto_url', 'is_active', 'is_staff']
+        fields = ['id', 'cedula', 'nombre', 'correo', 'foto', 'foto_url', 'is_active', 'is_staff', 'materias']
         read_only_fields = ['id', 'is_active', 'is_staff']
     
     def get_foto_url(self, obj):
         """Obtener URL de la foto o imagen por defecto"""
         if obj.foto and hasattr(obj.foto, 'url'):
             return obj.foto.url
-        return '/static/default-avatar.png'
+        return '/static/default-avatar.png'  # Imagen por defecto
+    
+    def get_materias(self, obj):
+        """Obtener las materias del profesor con sus nombres"""
+        materias = obj.materias.all()
+        return [{'id': materia.id, 'nombre': materia.nombre} for materia in materias]
     
     def update(self, instance, validated_data):
         """Actualizar profesor con validación de foto"""
+        # Extraer materias de los datos originales antes de la validación
+        materias_data = None
+        if hasattr(self, 'initial_data') and 'materias' in self.initial_data:
+            materias_data = self.initial_data['materias']
+            print(f"Datos iniciales de materias: {materias_data}")
+            print(f"Tipo de materias_data: {type(materias_data)}")
+        
         # Si se está actualizando la foto, eliminar la anterior
         if 'foto' in validated_data and instance.foto:
-            # Eliminar archivo anterior del sistema de archivos
             if instance.foto:
                 instance.foto.delete(save=False)
         
-        return super().update(instance, validated_data)
+        try:
+            # Actualizar el profesor
+            profesor = super().update(instance, validated_data)
+            
+            # Actualizar materias si se proporcionaron
+            if materias_data is not None:
+                # Convertir a lista de IDs si es necesario
+                if isinstance(materias_data, list):
+                    # Filtrar valores None, vacíos, o inválidos y convertir a enteros
+                    materias_ids = []
+                    for m in materias_data:
+                        if m is not None and m != '' and str(m) != 'None':
+                            try:
+                                # Si es un objeto Materia, obtener su ID
+                                if hasattr(m, 'id'):
+                                    materia_id = m.id
+                                else:
+                                    materia_id = int(m)
+                                
+                                if materia_id > 0:  # Asegurar que sea un ID válido
+                                    materias_ids.append(materia_id)
+                            except (ValueError, TypeError):
+                                continue
+                    
+                    # Verificar que las materias existen
+                    materias_existentes = Materia.objects.filter(id__in=materias_ids)
+                    profesor.materias.set(materias_existentes)
+                else:
+                    profesor.materias.set(materias_data)
+            
+            return profesor
+        except Exception as e:
+            print(f"Error en serializer update: {e}")
+            raise e
 
 # Serializer para actualización de foto únicamente
 class ProfesorFotoSerializer(serializers.ModelSerializer):

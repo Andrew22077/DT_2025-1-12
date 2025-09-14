@@ -68,29 +68,33 @@ const TeacherList = () => {
     navigate(`/editar/${userId}`);
   };
 
-  if (loading) return (
-    <div className="flex justify-center items-center min-h-screen">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <p className="text-gray-600">Cargando profesores...</p>
+  if (loading)
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando profesores...</p>
+        </div>
       </div>
-    </div>
-  );
+    );
 
-  if (error) return (
-    <div className="flex justify-center items-center min-h-screen">
-      <div className="text-center">
-        <p className="text-red-600 text-lg mb-4">Error al cargar los profesores</p>
-        <p className="text-gray-600">{error}</p>
-        <button 
-          onClick={fetchUsers}
-          className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          Reintentar
-        </button>
+  if (error)
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <p className="text-red-600 text-lg mb-4">
+            Error al cargar los profesores
+          </p>
+          <p className="text-gray-600">{error}</p>
+          <button
+            onClick={fetchUsers}
+            className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-100 p-5">
@@ -153,7 +157,8 @@ const TeacherList = () => {
               <div className="relative bg-gradient-to-r from-blue-500 to-cyan-500 p-4">
                 <div className="flex justify-center mb-3">
                   <div className="relative">
-                    {user.foto_url && user.foto_url !== '/static/default-avatar.png' ? (
+                    {user.foto_url &&
+                    user.foto_url !== "/static/default-avatar.png" ? (
                       <img
                         src={user.foto_url}
                         alt={user.nombre}
@@ -164,16 +169,17 @@ const TeacherList = () => {
                         <FaUser className="text-3xl text-white" />
                       </div>
                     )}
-                    
+
                     {/* Indicador de foto */}
-                    {user.foto_url && user.foto_url !== '/static/default-avatar.png' && (
-                      <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-1">
-                        <FaCamera className="text-xs" />
-                      </div>
-                    )}
+                    {user.foto_url &&
+                      user.foto_url !== "/static/default-avatar.png" && (
+                        <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-1">
+                          <FaCamera className="text-xs" />
+                        </div>
+                      )}
                   </div>
                 </div>
-                
+
                 {/* Botón de editar */}
                 <button
                   onClick={(e) => handleEditClick(e, user.id)}
@@ -190,7 +196,7 @@ const TeacherList = () => {
                   <h3 className="text-lg font-semibold text-gray-800 mb-2 truncate">
                     {user.nombre}
                   </h3>
-                  
+
                   <div className="space-y-2 text-sm text-gray-600">
                     <p className="flex items-center justify-center">
                       <span className="font-medium mr-2">Cédula:</span>
@@ -198,21 +204,48 @@ const TeacherList = () => {
                         {user.cedula}
                       </span>
                     </p>
-                    
+
                     <p className="flex items-center justify-center">
                       <span className="font-medium mr-2">Correo:</span>
-                      <span className="truncate max-w-[150px]" title={user.correo}>
+                      <span
+                        className="truncate max-w-[150px]"
+                        title={user.correo}
+                      >
                         {user.correo}
                       </span>
                     </p>
+
+                    {/* Materias */}
+                    {user.materias && user.materias.length > 0 && (
+                      <div className="mt-2">
+                        <span className="font-medium text-xs text-gray-500">
+                          Materias:
+                        </span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {user.materias.slice(0, 2).map((materia, index) => (
+                            <span
+                              key={index}
+                              className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded"
+                            >
+                              {materia.nombre}
+                            </span>
+                          ))}
+                          {user.materias.length > 2 && (
+                            <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">
+                              +{user.materias.length - 2} más
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Estado */}
                   <div className="mt-3">
                     <span
                       className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                        user.is_active 
-                          ? "bg-green-100 text-green-800" 
+                        user.is_active
+                          ? "bg-green-100 text-green-800"
                           : "bg-red-100 text-red-800"
                       }`}
                     >
@@ -239,10 +272,9 @@ const TeacherList = () => {
           <div className="text-center py-12">
             <FaUser className="text-6xl text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500 text-lg">
-              {users.length === 0 
-                ? "No hay profesores registrados" 
-                : "No se encontraron profesores con los filtros aplicados"
-              }
+              {users.length === 0
+                ? "No hay profesores registrados"
+                : "No se encontraron profesores con los filtros aplicados"}
             </p>
           </div>
         )}

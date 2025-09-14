@@ -7,6 +7,8 @@ import {
   FaGraduationCap,
   FaCheckCircle,
   FaChalkboardTeacher,
+  FaEye,
+  FaCircle,
 } from "react-icons/fa";
 import {
   BarChart,
@@ -16,6 +18,8 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  LineChart,
+  Line,
 } from "recharts";
 import toast from "react-hot-toast";
 
@@ -29,6 +33,13 @@ const Informes = () => {
   const [filtroEstudiante, setFiltroEstudiante] = useState("todos");
   const [filtroProfesor, setFiltroProfesor] = useState("todos");
 
+  // Nuevos estados para las nuevas funcionalidades
+  const [gacsSemestre, setGacsSemestre] = useState(null);
+  const [profesoresMaterias, setProfesoresMaterias] = useState(null);
+  const [estudiantesProfesores, setEstudiantesProfesores] = useState(null);
+  const [detalleProfesorMateria, setDetalleProfesorMateria] = useState(null);
+  const [mostrarDetalle, setMostrarDetalle] = useState(false);
+
   useEffect(() => {
     cargarResultados();
   }, []);
@@ -40,6 +51,50 @@ const Informes = () => {
       setResultadosGlobales(datos);
     } catch (error) {
       toast.error("Error al cargar resultados: " + (error.message || error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cargarDatosTab = async (tab) => {
+    try {
+      setLoading(true);
+      switch (tab) {
+        case "gac":
+          const datosGAC = await evaluacionApi.obtenerInformesGACSemestre();
+          setGacsSemestre(datosGAC);
+          break;
+        case "profesor":
+          const datosProfesor =
+            await evaluacionApi.obtenerInformesProfesorMateria();
+          setProfesoresMaterias(datosProfesor);
+          break;
+        case "estudiante":
+          const datosEstudiante =
+            await evaluacionApi.obtenerInformesEstudianteProfesores();
+          setEstudiantesProfesores(datosEstudiante);
+          break;
+        default:
+          break;
+      }
+    } catch (error) {
+      toast.error("Error al cargar datos: " + (error.message || error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cargarDetalleProfesorMateria = async (profesorId, materiaId) => {
+    try {
+      setLoading(true);
+      const datos = await evaluacionApi.obtenerDetalleProfesorMateria(
+        profesorId,
+        materiaId
+      );
+      setDetalleProfesorMateria(datos);
+      setMostrarDetalle(true);
+    } catch (error) {
+      toast.error("Error al cargar detalle: " + (error.message || error));
     } finally {
       setLoading(false);
     }
@@ -106,7 +161,10 @@ const Informes = () => {
               ].map(([tab, label]) => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    cargarDatosTab(tab);
+                  }}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === tab
                       ? "border-blue-500 text-blue-600"
@@ -186,110 +244,480 @@ const Informes = () => {
 
         {/* --- Tab por GAC --- */}
         {activeTab === "gac" && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {grafico_gacs.map((gac) => (
-              <div key={gac.gac} className="bg-white rounded-lg shadow-md p-6">
-                <div className="flex justify-between mb-4">
-                  <h3 className="font-semibold text-gray-800">{gac.gac}</h3>
-                  <div
-                    className={`text-2xl font-bold ${getColorByPuntaje(
-                      gac.promedio
-                    )}`}
-                  >
-                    {gac.promedio.toFixed(2)}
-                  </div>
-                </div>
-                <p className="text-gray-600 mb-4">{gac.descripcion}</p>
+          <div>
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
               </div>
-            ))}
+            ) : gacsSemestre ? (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                  Promedios de GAC por Semestre
+                </h2>
+
+                {/* Gráfico comparativo */}
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                    Comparación por Semestre
+                  </h3>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={gacsSemestre.gacs_por_semestre}>
+                      <XAxis dataKey="gac_numero" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar
+                        dataKey="primer_semestre.promedio"
+                        fill="#3B82F6"
+                        name="Primer Semestre"
+                      />
+                      <Bar
+                        dataKey="segundo_semestre.promedio"
+                        fill="#10B981"
+                        name="Segundo Semestre"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Tarjetas detalladas */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {gacsSemestre.gacs_por_semestre.map((gac) => (
+                    <div
+                      key={gac.gac_numero}
+                      className="bg-white rounded-lg shadow-md p-6"
+                    >
+                      <div className="mb-4">
+                        <h3 className="font-semibold text-gray-800 text-lg">
+                          GAC {gac.gac_numero}
+                        </h3>
+                        <p className="text-gray-600 text-sm mt-1">
+                          {gac.gac_descripcion}
+                        </p>
+                      </div>
+
+                      <div className="space-y-3">
+                        {/* Primer Semestre */}
+                        <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                          <div>
+                            <span className="text-sm font-medium text-blue-800">
+                              Primer Semestre
+                            </span>
+                            <p className="text-xs text-blue-600">
+                              Virtual 1, 1A, 1B, 1C
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <div
+                              className={`text-xl font-bold ${getColorByPuntaje(
+                                gac.primer_semestre.promedio
+                              )}`}
+                            >
+                              {gac.primer_semestre.promedio.toFixed(2)}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {gac.primer_semestre.total_evaluaciones}{" "}
+                              evaluaciones
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Segundo Semestre */}
+                        <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                          <div>
+                            <span className="text-sm font-medium text-green-800">
+                              Segundo Semestre
+                            </span>
+                            <p className="text-xs text-green-600">2A, 2B, 2C</p>
+                          </div>
+                          <div className="text-right">
+                            <div
+                              className={`text-xl font-bold ${getColorByPuntaje(
+                                gac.segundo_semestre.promedio
+                              )}`}
+                            >
+                              {gac.segundo_semestre.promedio.toFixed(2)}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {gac.segundo_semestre.total_evaluaciones}{" "}
+                              evaluaciones
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-500">No hay datos disponibles</p>
+              </div>
+            )}
           </div>
         )}
 
         {/* --- Tab por Profesor --- */}
         {activeTab === "profesor" && (
           <div>
-            <div className="mb-4">
-              <label className="mr-2 font-medium">Filtrar por profesor:</label>
-              <select
-                value={filtroProfesor}
-                onChange={(e) => setFiltroProfesor(e.target.value)}
-                className="border rounded p-1"
-              >
-                <option value="todos">Todos</option>
-                {grafico_profesores.map((p) => (
-                  <option key={p.profesor} value={p.profesor}>
-                    {p.profesor}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                Promedio por Profesor
-              </h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={
-                    filtroProfesor === "todos"
-                      ? grafico_profesores
-                      : grafico_profesores.filter(
-                          (p) => p.profesor === filtroProfesor
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+            ) : profesoresMaterias ? (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                  Promedios por Profesor y Materia
+                </h2>
+
+                {/* Modal de detalle */}
+                {mostrarDetalle && detalleProfesorMateria && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold">
+                          {detalleProfesorMateria.profesor_nombre} -{" "}
+                          {detalleProfesorMateria.materia_nombre}
+                        </h3>
+                        <button
+                          onClick={() => setMostrarDetalle(false)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full table-auto">
+                          <thead>
+                            <tr className="bg-gray-50">
+                              <th className="px-4 py-2 text-left">
+                                Estudiante
+                              </th>
+                              <th className="px-4 py-2 text-left">Grupo</th>
+                              <th className="px-4 py-2 text-left">Promedio</th>
+                              <th className="px-4 py-2 text-left">
+                                Evaluaciones
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {detalleProfesorMateria.estudiantes.map(
+                              (estudiante, index) => (
+                                <tr key={index} className="border-b">
+                                  <td className="px-4 py-2">
+                                    {estudiante.estudiante_nombre}
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    {estudiante.estudiante_grupo}
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <span
+                                      className={`font-semibold ${getColorByPuntaje(
+                                        estudiante.promedio
+                                      )}`}
+                                    >
+                                      {estudiante.promedio}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    {estudiante.total_evaluaciones}
+                                  </td>
+                                </tr>
+                              )
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de profesores y materias */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {profesoresMaterias.profesores_materias.map((item, index) => (
+                    <div
+                      key={index}
+                      className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
+                      onClick={() =>
+                        cargarDetalleProfesorMateria(
+                          item.profesor_id,
+                          item.materia_id
                         )
-                  }
-                >
-                  <XAxis dataKey="profesor" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="promedio" fill="#10B981" name="Promedio" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+                      }
+                    >
+                      <div className="flex justify-between items-start mb-4">
+                        <div>
+                          <h3 className="font-semibold text-gray-800 text-lg">
+                            {item.profesor_nombre}
+                          </h3>
+                          <p className="text-gray-600 text-sm">
+                            {item.materia_nombre}
+                          </p>
+                        </div>
+                        <FaEye className="text-gray-400 hover:text-gray-600" />
+                      </div>
+
+                      <div className="space-y-3">
+                        {/* Promedio */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-600">
+                            Promedio:
+                          </span>
+                          <span
+                            className={`text-xl font-bold ${getColorByPuntaje(
+                              item.promedio
+                            )}`}
+                          >
+                            {item.promedio}
+                          </span>
+                        </div>
+
+                        {/* Semaforización */}
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-medium text-gray-600">
+                            Progreso:
+                          </span>
+                          <div className="flex items-center space-x-2">
+                            <FaCircle
+                              className={`text-sm ${
+                                item.color_semaforo === "rojo"
+                                  ? "text-red-500"
+                                  : item.color_semaforo === "amarillo"
+                                  ? "text-yellow-500"
+                                  : "text-green-500"
+                              }`}
+                            />
+                            <span className="text-sm font-medium">
+                              {item.porcentaje_evaluacion}%
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Estadísticas */}
+                        <div className="text-xs text-gray-500 space-y-1">
+                          <div className="flex justify-between">
+                            <span>Evaluados:</span>
+                            <span>{item.estudiantes_evaluados}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Total:</span>
+                            <span>{item.total_estudiantes}</span>
+                          </div>
+                        </div>
+
+                        {/* Barra de progreso */}
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${
+                              item.color_semaforo === "rojo"
+                                ? "bg-red-500"
+                                : item.color_semaforo === "amarillo"
+                                ? "bg-yellow-500"
+                                : "bg-green-500"
+                            }`}
+                            style={{ width: `${item.porcentaje_evaluacion}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-500">No hay datos disponibles</p>
+              </div>
+            )}
           </div>
         )}
 
         {/* --- Tab por Estudiante --- */}
         {activeTab === "estudiante" && (
           <div>
-            <div className="mb-4">
-              <label className="mr-2 font-medium">
-                Filtrar por estudiante:
-              </label>
-              <select
-                value={filtroEstudiante}
-                onChange={(e) => setFiltroEstudiante(e.target.value)}
-                className="border rounded p-1"
-              >
-                <option value="todos">Todos</option>
-                {grafico_estudiantes.map((e) => (
-                  <option key={e.estudiante} value={e.estudiante}>
-                    {e.estudiante}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                Promedio por Estudiante
-              </h2>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={
-                    filtroEstudiante === "todos"
-                      ? grafico_estudiantes
-                      : grafico_estudiantes.filter(
-                          (e) => e.estudiante === filtroEstudiante
-                        )
-                  }
-                >
-                  <XAxis dataKey="estudiante" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="promedio" fill="#F59E0B" name="Promedio" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+            ) : estudiantesProfesores ? (
+              <div className="space-y-6">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                  Promedios por Estudiante y Profesores Evaluadores
+                </h2>
+
+                {/* Gráfico de barras */}
+                <div className="bg-white rounded-lg shadow-md p-6">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                    Distribución de Promedios
+                  </h3>
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart
+                      data={estudiantesProfesores.estudiantes_profesores.slice(
+                        0,
+                        20
+                      )}
+                    >
+                      <XAxis
+                        dataKey="estudiante_nombre"
+                        angle={-45}
+                        textAnchor="end"
+                        height={100}
+                      />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="promedio" fill="#F59E0B" name="Promedio" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Tabla de estudiantes */}
+                <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800">
+                      Lista de Estudiantes
+                    </h3>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Estudiante
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Grupo
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Promedio
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Evaluaciones
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Profesores Evaluadores
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {estudiantesProfesores.estudiantes_profesores.map(
+                          (estudiante, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {estudiante.estudiante_nombre}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {estudiante.estudiante_grupo}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <span
+                                  className={`text-lg font-bold ${getColorByPuntaje(
+                                    estudiante.promedio
+                                  )}`}
+                                >
+                                  {estudiante.promedio}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {estudiante.total_evaluaciones}
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex flex-wrap gap-1">
+                                  {estudiante.profesores_evaluadores.map(
+                                    (profesor, profIndex) => (
+                                      <span
+                                        key={profIndex}
+                                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                                      >
+                                        {profesor}
+                                      </span>
+                                    )
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Resumen estadístico */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <FaUsers className="h-8 w-8 text-blue-600" />
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-500">
+                          Total Estudiantes
+                        </p>
+                        <p className="text-2xl font-semibold text-gray-900">
+                          {estudiantesProfesores.estudiantes_profesores.length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <FaChartBar className="h-8 w-8 text-green-600" />
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-500">
+                          Promedio General
+                        </p>
+                        <p className="text-2xl font-semibold text-gray-900">
+                          {estudiantesProfesores.estudiantes_profesores.length >
+                          0
+                            ? (
+                                estudiantesProfesores.estudiantes_profesores.reduce(
+                                  (sum, e) => sum + e.promedio,
+                                  0
+                                ) /
+                                estudiantesProfesores.estudiantes_profesores
+                                  .length
+                              ).toFixed(2)
+                            : "0.00"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <div className="flex items-center">
+                      <div className="flex-shrink-0">
+                        <FaCheckCircle className="h-8 w-8 text-yellow-600" />
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-500">
+                          Estudiantes Aprobados
+                        </p>
+                        <p className="text-2xl font-semibold text-gray-900">
+                          {
+                            estudiantesProfesores.estudiantes_profesores.filter(
+                              (e) => e.promedio >= 3.0
+                            ).length
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-gray-500">No hay datos disponibles</p>
+              </div>
+            )}
           </div>
         )}
 

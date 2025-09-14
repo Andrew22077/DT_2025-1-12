@@ -50,35 +50,46 @@ const UserMenu = () => {
             )}
             {user && (
               <>
+                {user.is_staff && (
+                  <li className="p-3 hover:bg-slate-600 cursor-pointer">
+                    <Link
+                      to="/admin-menu"
+                      className="flex items-center gap-1 hover:text-white transition"
+                      onClick={() => setOpen(false)}
+                    >
+                      <FaBars color="white" />
+                      <span className="select-none">Menu Administrador</span>
+                    </Link>
+                  </li>
+                )}
                 {!user.is_staff && (
                   <li className="p-3 hover:bg-slate-600 cursor-pointer">
                     <Link
                       to="/teacher-menu"
                       className="flex items-center gap-1 hover:text-white transition"
+                      onClick={() => setOpen(false)}
                     >
                       <FaGlasses color="white" /> Menú
                     </Link>
                   </li>
                 )}
                 {/*Lista Estudiantes*/}
-                <li
-                  className="p-3 hover:bg-slate-600 cursor-pointer flex items-center gap-2 hover:text-white transition"
-                >
+                <li className="p-3 hover:bg-slate-600 cursor-pointer flex items-center gap-2 hover:text-white transition">
                   <Link
                     to="/student-list" // Enlace al TeacherList
                     className="flex items-center gap-1 hover:text-white transition"
+                    onClick={() => setOpen(false)}
                   >
                     <FaUserGraduate color="white" />
                     <span className="select-none">Lista Estudiantes</span>
                   </Link>
                 </li>
                 {/*Evaluación de Estudiantes*/}
-                <li
-                  className="p-3 hover:bg-slate-600 cursor-pointer flex items-center gap-2 hover:text-white transition"
-                >
+                <li className="p-3 hover:bg-slate-600 cursor-pointer flex items-center gap-2 hover:text-white transition">
                   <Link
                     to="/evaluacion-estudiantes"
                     className="flex items-center gap-1 hover:text-white transition"
+                    onClick={() => setOpen(false)}
                   >
                     <FaUserGraduate color="white" />
                     <span className="select-none">Evaluar Estudiantes</span>
@@ -89,20 +100,10 @@ const UserMenu = () => {
                     <Link
                       to="/teacher-list" // Enlace al TeacherList
                       className="flex items-center gap-1 hover:text-white transition"
+                      onClick={() => setOpen(false)}
                     >
                       <FaGlasses color="white" />
                       <span className="select-none">Lista de Profesores</span>
-                    </Link>
-                  </li>
-                )}
-                {user.is_staff && (
-                  <li className="p-3 hover:bg-slate-600 cursor-pointer">
-                    <Link
-                      to="/admin-menu" // Enlace al TeacherList
-                      className="flex items-center gap-1 hover:text-white transition"
-                    >
-                      <FaBars color="white" />
-                      <span className="select-none">Menu Administrador</span>
                     </Link>
                   </li>
                 )}
@@ -110,6 +111,7 @@ const UserMenu = () => {
                   <Link
                     to="/editar-perfil"
                     className="flex items-center gap-1 hover:text-white transition"
+                    onClick={() => setOpen(false)}
                   >
                     <FaHighlighter color="white" />
                     <span className="select-none">Editar Perfil</span>
@@ -118,7 +120,10 @@ const UserMenu = () => {
 
                 {/* Cerrar sesión */}
                 <li
-                  onClick={() => logout()}
+                  onClick={() => {
+                    logout();
+                    setOpen(false);
+                  }}
                   className="p-3 hover:bg-slate-600 cursor-pointer flex items-center gap-2 hover:text-red-400 transition"
                 >
                   <Link
@@ -128,7 +133,6 @@ const UserMenu = () => {
                     <FaSignInAlt color="red" />
                     <span className="select-none">Cerrar sesión</span>
                   </Link>
-
                 </li>
               </>
             )}
