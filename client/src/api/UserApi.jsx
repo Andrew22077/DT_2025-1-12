@@ -114,7 +114,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.put(
-        `${API_URL}/api/profesores/${id}/foto/`,
+        `${API_URL}/profesores/${id}/foto/`,
         formData,
         {
           headers: {
@@ -213,15 +213,12 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(
-        `${API_URL}/api/export-excel-profesores/`,
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-          responseType: "blob", // Importante para archivos
-        }
-      );
+      const response = await axios.get(`${API_URL}/export-excel-profesores/`, {
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+        responseType: "blob", // Importante para archivos
+      });
 
       // Obtener nombre del archivo desde headers si el backend lo envía
       const contentDisposition = response.headers["content-disposition"];
@@ -316,7 +313,7 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${API_URL}/api/estudiante/${id}/`, {
+      const response = await axios.get(`${API_URL}/estudiante/${id}/`, {
         headers: {
           Authorization: `Token ${token}`,
         },
@@ -340,7 +337,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.post(
-        `${API_URL}/api/register-estudiante/`,
+        `${API_URL}/register-estudiante/`,
         datos,
         {
           headers: {
@@ -369,15 +366,11 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.put(
-        `${API_URL}/api/estudiante/${id}/`,
-        data,
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-        }
-      );
+      const response = await axios.put(`${API_URL}/estudiante/${id}/`, data, {
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+      });
       return response.data;
     } catch (error) {
       console.error("Error al actualizar estudiante:", error);
@@ -396,7 +389,7 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.delete(`${API_URL}/api/estudiante/${id}/`, {
+      const response = await axios.delete(`${API_URL}/estudiante/${id}/`, {
         headers: {
           Authorization: `Token ${token}`,
         },
@@ -423,7 +416,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.post(
-        `${API_URL}/api/import-excel-estudiantes/`,
+        `${API_URL}/import-excel-estudiantes/`,
         formData,
         {
           headers: {
@@ -450,15 +443,12 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(
-        `${API_URL}/api/export-excel-estudiantes/`,
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-          responseType: "blob", // Importante para archivos
-        }
-      );
+      const response = await axios.get(`${API_URL}/export-excel-estudiantes/`, {
+        headers: {
+          Authorization: `Token ${token}`,
+        },
+        responseType: "blob", // Importante para archivos
+      });
 
       // Obtener nombre del archivo desde headers si el backend lo envía
       const contentDisposition = response.headers["content-disposition"];
@@ -495,7 +485,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.get(
-        `${API_URL}/api/estudiantes-por-grupo/${grupo}/`,
+        `${API_URL}/estudiantes-por-grupo/${grupo}/`,
         {
           headers: {
             Authorization: `Token ${token}`,
@@ -520,7 +510,7 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${API_URL}/api/grupos/`, {
+      const response = await axios.get(`${API_URL}/grupos/`, {
         headers: {
           Authorization: `Token ${token}`,
         },
@@ -543,7 +533,7 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get(`${API_URL}/api/perfil/`, {
+      const response = await axios.get(`${API_URL}/perfil/`, {
         headers: {
           Authorization: `Token ${token}`,
         },
@@ -761,15 +751,12 @@ export const exportProfesoresExcel = async () => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.get(
-      `${API_URL}/api/export-excel-profesores/`,
-      {
-        headers: {
-          Authorization: `Token ${token}`,
-        },
-        responseType: "blob", // Importante para archivos
-      }
-    );
+    const response = await axios.get(`${API_URL}/export-excel-profesores/`, {
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+      responseType: "blob", // Importante para archivos
+    });
 
     // Obtener nombre del archivo desde headers si el backend lo envía
     const contentDisposition = response.headers["content-disposition"];
@@ -837,7 +824,7 @@ export const getEstudiante = async (id) => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.get(`${API_URL}/api/estudiante/${id}/`, {
+    const response = await axios.get(`${API_URL}/estudiante/${id}/`, {
       headers: {
         Authorization: `Token ${token}`,
       },
@@ -855,7 +842,7 @@ export const registerEstudiante = async (datos) => {
 
   try {
     const response = await axios.post(
-      `${API_URL}/api/register-estudiante/`,
+      `${API_URL}/register-estudiante/`,
       datos,
       {
         headers: {
@@ -878,7 +865,7 @@ export const updateEstudiante = async (id, data) => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.put(`${API_URL}/api/estudiante/${id}/`, data, {
+    const response = await axios.put(`${API_URL}/estudiante/${id}/`, data, {
       headers: {
         Authorization: `Token ${token}`,
       },
@@ -895,7 +882,7 @@ export const deleteEstudiante = async (id) => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.delete(`${API_URL}/api/estudiante/${id}/`, {
+    const response = await axios.delete(`${API_URL}/estudiante/${id}/`, {
       headers: {
         Authorization: `Token ${token}`,
       },
@@ -916,7 +903,7 @@ export const importExcelEstudiantes = async (file) => {
 
   try {
     const response = await axios.post(
-      `${API_URL}/api/import-excel-estudiantes/`,
+      `${API_URL}/import-excel-estudiantes/`,
       formData,
       {
         headers: {
@@ -937,15 +924,12 @@ export const exportEstudiantesExcel = async () => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.get(
-      `${API_URL}/api/export-excel-estudiantes/`,
-      {
-        headers: {
-          Authorization: `Token ${token}`,
-        },
-        responseType: "blob", // Importante para archivos
-      }
-    );
+    const response = await axios.get(`${API_URL}/export-excel-estudiantes/`, {
+      headers: {
+        Authorization: `Token ${token}`,
+      },
+      responseType: "blob", // Importante para archivos
+    });
 
     // Obtener nombre del archivo desde headers si el backend lo envía
     const contentDisposition = response.headers["content-disposition"];
@@ -976,7 +960,7 @@ export const getEstudiantesPorGrupo = async (grupo) => {
 
   try {
     const response = await axios.get(
-      `${API_URL}/api/estudiantes-por-grupo/${grupo}/`,
+      `${API_URL}/estudiantes-por-grupo/${grupo}/`,
       {
         headers: {
           Authorization: `Token ${token}`,
@@ -995,7 +979,7 @@ export const getGrupos = async () => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.get(`${API_URL}/api/grupos/`, {
+    const response = await axios.get(`${API_URL}/grupos/`, {
       headers: {
         Authorization: `Token ${token}`,
       },
@@ -1012,7 +996,7 @@ export const getCurrentUser = async () => {
   if (!token) throw new Error("Token no encontrado");
 
   try {
-    const response = await axios.get(`${API_URL}/api/perfil/`, {
+    const response = await axios.get(`${API_URL}/perfil/`, {
       headers: {
         Authorization: `Token ${token}`,
       },
