@@ -51,6 +51,7 @@ class ProfesorPerfilSerializer(serializers.ModelSerializer):
     def get_foto_url(self, obj):
         """Obtener URL de la foto o imagen por defecto"""
         if obj.foto and hasattr(obj.foto, 'url'):
+            # Usar la URL completa del archivo
             return obj.foto.url
         return '/static/default-avatar.png'  # Imagen por defecto
     

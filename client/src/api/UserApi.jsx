@@ -114,7 +114,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.put(
-        `${API_URL}/profesores/${id}/foto/`,
+        `${API_URL}/api/profesores/${id}/foto/`,
         formData,
         {
           headers: {

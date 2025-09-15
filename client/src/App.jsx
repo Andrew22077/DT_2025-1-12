@@ -24,7 +24,14 @@ function App() {
     <BrowserRouter>
       <Navigation />
       <Routes>
-        <Route path="/editar-perfil" element={<EditProfile />} />
+        <Route
+          path="/editar-perfil"
+          element={
+            <ProtectedRoute>
+              <EditProfile />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/" element={<Navigate to="/information" />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/unauthorized" element={<UnauthorizedPage />} />

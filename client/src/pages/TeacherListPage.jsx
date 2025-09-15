@@ -3,6 +3,7 @@ import { useUserApi } from "../api/UserApi";
 import { useNavigate } from "react-router-dom";
 import { default as ImportExportExcel } from "../components/ImportExportExcel";
 import { FaUser, FaCamera, FaEdit } from "react-icons/fa";
+import { buildPhotoUrl, isValidPhotoUrl } from "../utils/photoUtils";
 
 const TeacherList = () => {
   const { getProfesores, loading, error } = useUserApi();
@@ -157,12 +158,15 @@ const TeacherList = () => {
               <div className="relative bg-gradient-to-r from-blue-500 to-cyan-500 p-4">
                 <div className="flex justify-center mb-3">
                   <div className="relative">
-                    {user.foto_url &&
-                    user.foto_url !== "/static/default-avatar.png" ? (
+                    {isValidPhotoUrl(user.foto_url) ? (
                       <img
-                        src={user.foto_url}
+                        src={buildPhotoUrl(user.foto_url)}
                         alt={user.nombre}
                         className="w-20 h-20 rounded-full object-cover border-4 border-white shadow-lg"
+                        onError={(e) => {
+                          console.log("Error cargando imagen:", e.target.src);
+                          e.target.style.display = "none";
+                        }}
                       />
                     ) : (
                       <div className="w-20 h-20 rounded-full bg-white/20 border-4 border-white shadow-lg flex items-center justify-center">
@@ -171,12 +175,11 @@ const TeacherList = () => {
                     )}
 
                     {/* Indicador de foto */}
-                    {user.foto_url &&
-                      user.foto_url !== "/static/default-avatar.png" && (
-                        <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-1">
-                          <FaCamera className="text-xs" />
-                        </div>
-                      )}
+                    {isValidPhotoUrl(user.foto_url) && (
+                      <div className="absolute -bottom-1 -right-1 bg-green-500 text-white rounded-full p-1">
+                        <FaCamera className="text-xs" />
+                      </div>
+                    )}
                   </div>
                 </div>
 
