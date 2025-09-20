@@ -94,9 +94,9 @@ WSGI_APPLICATION = 'project_grado_api.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'midb',
-        'USER': 'miusuario',
-        'PASSWORD': 'mipassword',
+        'NAME': 'project_database',
+        'USER': 'root',
+        'PASSWORD': '0000',
         'HOST': 'localhost',
         'PORT': '3306',
         'OPTIONS': {
