@@ -94,16 +94,17 @@ WSGI_APPLICATION = 'project_grado_api.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'project_database',
-        'USER': 'root',
-        'PASSWORD': '0000',
-        'HOST': 'localhost',
+        'NAME': 'midb',  
+        'USER': 'competenciasGAC',
+        'PASSWORD': 'Unbosqu32025',
+        'HOST': '127.0.0.1',   # usa 127.0.0.1 en lugar de localhost para evitar socket
         'PORT': '3306',
         'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
         }
     }
 }
+
 
 
 # Password validation
