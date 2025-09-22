@@ -43,6 +43,9 @@ REST_FRAMEWORK = {
     ],
 }
 
+# 👇 ESTA ERA LA QUE FALTABA
+ROOT_URLCONF = 'project_grado_api.urls'
+
 # Static & Media
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
