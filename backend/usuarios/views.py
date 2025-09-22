@@ -20,13 +20,14 @@ from .serializers import EstudianteSerializer
 @permission_classes([AllowAny])
 def login_view(request):
     print("=== DEBUG LOGIN VIEW ===")
+    print("correo:", correo)
+    print("password:", contrasenia)
     print("Content-Type:", request.content_type)
     print("request.data:", request.data)
     print("request.POST:", request.POST)
     print("request.body:", request.body)
     print("=== DEBUG AUTH ===")
-    print("correo:", correo)
-    print("password:", contrasenia)
+    
 
     print("========================")
     correo = request.data.get('correo')
