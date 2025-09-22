@@ -24,6 +24,10 @@ def login_view(request):
     print("request.data:", request.data)
     print("request.POST:", request.POST)
     print("request.body:", request.body)
+    print("=== DEBUG AUTH ===")
+    print("correo:", correo)
+    print("password:", contrasenia)
+
     print("========================")
     correo = request.data.get('correo')
     contrasenia = request.data.get('contrasenia')
