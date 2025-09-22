@@ -2,7 +2,7 @@
 import axios from "axios";
 import { useState, useCallback } from "react";
 
-const API_URL = "http://localhost:8000/api";
+const API_URL = "http://3.17.149.166/api";
 
 // Hook personalizado para la API de usuarios
 export const useUserApi = () => {
