@@ -37,6 +37,9 @@ def login_view(request):
 
     # Autenticación: Usamos el correo en lugar de username, y la contraseña
     user = authenticate(request, correo=correo, password=contrasenia)
+    user = authenticate(request, username=correo, password=contrasenia)
+    print(">>> Usuario autenticado:", user)
+
 
     if user is None:
         return Response({'error': 'Correo o contraseña incorrectos'}, status=status.HTTP_401_UNAUTHORIZED)
