@@ -20,8 +20,7 @@ from .serializers import EstudianteSerializer
 @permission_classes([AllowAny])
 def login_view(request):
     print("=== DEBUG LOGIN VIEW ===")
-    print("correo:", correo)
-    print("password:", contrasenia)
+    
     print("Content-Type:", request.content_type)
     print("request.data:", request.data)
     print("request.POST:", request.POST)
@@ -32,7 +31,8 @@ def login_view(request):
     print("========================")
     correo = request.data.get('correo')
     contrasenia = request.data.get('contrasenia')
-
+    print("correo:", correo)
+    print("password:", contrasenia)
     # Verificar que el correo y la contraseña estén presentes en la solicitud
     if not correo or not contrasenia:
         return Response({'error': 'Correo y contraseña son requeridos'}, status=status.HTTP_400_BAD_REQUEST)
