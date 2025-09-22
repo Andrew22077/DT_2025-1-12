@@ -34,3 +34,4 @@ class Command(BaseCommand):
                     self.stdout.write(f'Materia creada: {materia.nombre}')
                 else:
                     self.stdout.write(f'Materia ya existe: {materia.nombre}')
+

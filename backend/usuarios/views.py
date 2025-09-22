@@ -385,7 +385,7 @@ def actualizar_perfil_usuario(request):
 
 #Estudiantes
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def listar_estudiantes(request):
     """Listar todos los estudiantes"""
     try:
