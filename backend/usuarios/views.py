@@ -23,9 +23,7 @@ def login_view(request):
     
     print("Content-Type:", request.content_type)
     print("request.data:", request.data)
-    print("request.POST:", request.POST)
-    print("request.body:", request.body)
-    print("=== DEBUG AUTH ===")
+    
     
 
     print("========================")
