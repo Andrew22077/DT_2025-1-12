@@ -161,3 +161,4 @@ class Command(BaseCommand):
         self.stdout.write(f'Total Evaluaciones: {Evaluacion.objects.count()}')
         self.stdout.write(f'Evaluaciones creadas en esta ejecución: {evaluaciones_creadas}')
 
+
