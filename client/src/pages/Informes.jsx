@@ -197,7 +197,7 @@ const Informes = () => {
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
               {[
-                ["general", "Resumen General"],
+                ["general", "Resumen GeneraLAAAAAAAAAAAA"],
                 ["gac", "Por GAC"],
                 ["profesor", "Por Profesor"],
                 ["estudiante", "Por Estudiante"],
