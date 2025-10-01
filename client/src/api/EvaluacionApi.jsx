@@ -354,6 +354,124 @@ export const useEvaluacionApi = () => {
     }
   };
 
+  // Funciones para descargar PDFs
+  const descargarPDFResumenGeneral = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/pdf/resumen-general/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al descargar PDF de resumen general");
+      }
+
+      // Crear blob y descargar
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `resumen_general_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Error en descargarPDFResumenGeneral:", error);
+      throw error;
+    }
+  };
+
+  const descargarPDFPorGAC = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/pdf/por-gac/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al descargar PDF por GAC");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `informe_por_gac_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Error en descargarPDFPorGAC:", error);
+      throw error;
+    }
+  };
+
+  const descargarPDFPorProfesor = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/pdf/por-profesor/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al descargar PDF por profesor");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `informe_por_profesor_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Error en descargarPDFPorProfesor:", error);
+      throw error;
+    }
+  };
+
+  const descargarPDFPorEstudiante = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/pdf/por-estudiante/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al descargar PDF por estudiante");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `informe_por_estudiante_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Error en descargarPDFPorEstudiante:", error);
+      throw error;
+    }
+  };
+
   return {
     obtenerEstudiantes,
     obtenerRACs,
@@ -371,5 +489,9 @@ export const useEvaluacionApi = () => {
     obtenerDetalleProfesorMateria,
     obtenerMateriasProfesor,
     obtenerGACsPorMateria,
+    descargarPDFResumenGeneral,
+    descargarPDFPorGAC,
+    descargarPDFPorProfesor,
+    descargarPDFPorEstudiante,
   };
 };

@@ -9,6 +9,7 @@ import {
   FaChalkboardTeacher,
   FaEye,
   FaCircle,
+  FaDownload,
 } from "react-icons/fa";
 import {
   BarChart,
@@ -100,6 +101,37 @@ const Informes = () => {
     }
   };
 
+  // Funciones para descargar PDFs
+  const handleDescargarPDF = async (tipo) => {
+    try {
+      setLoading(true);
+      switch (tipo) {
+        case "general":
+          await evaluacionApi.descargarPDFResumenGeneral();
+          toast.success("PDF de resumen general descargado exitosamente");
+          break;
+        case "gac":
+          await evaluacionApi.descargarPDFPorGAC();
+          toast.success("PDF por GAC descargado exitosamente");
+          break;
+        case "profesor":
+          await evaluacionApi.descargarPDFPorProfesor();
+          toast.success("PDF por profesor descargado exitosamente");
+          break;
+        case "estudiante":
+          await evaluacionApi.descargarPDFPorEstudiante();
+          toast.success("PDF por estudiante descargado exitosamente");
+          break;
+        default:
+          break;
+      }
+    } catch (error) {
+      toast.error("Error al descargar PDF: " + (error.message || error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getColorByPuntaje = (promedio) => {
     if (promedio >= 4.0) return "text-green-600";
     if (promedio >= 3.0) return "text-blue-600";
@@ -181,6 +213,18 @@ const Informes = () => {
         {/* --- Tab General --- */}
         {activeTab === "general" && (
           <div className="space-y-6">
+            {/* Botón de descarga PDF */}
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => handleDescargarPDF("general")}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                <FaDownload />
+                {loading ? "Generando..." : "Descargar PDF"}
+              </button>
+            </div>
+
             {/* Resumen */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
               <div className="bg-blue-50 rounded-lg p-6 text-center shadow-md">
@@ -251,9 +295,19 @@ const Informes = () => {
               </div>
             ) : gacsSemestre ? (
               <div className="space-y-6">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  Promedios de GAC por Semestre
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-semibold text-gray-800">
+                    Promedios de GAC por Semestre
+                  </h2>
+                  <button
+                    onClick={() => handleDescargarPDF("gac")}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FaDownload />
+                    {loading ? "Generando..." : "Descargar PDF"}
+                  </button>
+                </div>
 
                 {/* Gráfico comparativo */}
                 <div className="bg-white rounded-lg shadow-md p-6">
@@ -366,9 +420,19 @@ const Informes = () => {
               </div>
             ) : profesoresMaterias ? (
               <div className="space-y-6">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  Promedios por Profesor y Materia
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-semibold text-gray-800">
+                    Promedios por Profesor y Materia
+                  </h2>
+                  <button
+                    onClick={() => handleDescargarPDF("profesor")}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FaDownload />
+                    {loading ? "Generando..." : "Descargar PDF"}
+                  </button>
+                </div>
 
                 {/* Modal de detalle */}
                 {mostrarDetalle && detalleProfesorMateria && (
@@ -541,9 +605,19 @@ const Informes = () => {
               </div>
             ) : estudiantesProfesores ? (
               <div className="space-y-6">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                  Promedios por Estudiante y Profesores Evaluadores
-                </h2>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-2xl font-semibold text-gray-800">
+                    Promedios por Estudiante y Profesores Evaluadores
+                  </h2>
+                  <button
+                    onClick={() => handleDescargarPDF("estudiante")}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <FaDownload />
+                    {loading ? "Generando..." : "Descargar PDF"}
+                  </button>
+                </div>
 
                 {/* Gráfico de barras */}
                 <div className="bg-white rounded-lg shadow-md p-6">

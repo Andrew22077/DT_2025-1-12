@@ -29,6 +29,12 @@ urlpatterns = [
     path('api/debug-datos/', views.debug_datos, name='debug_datos'),
     path('api/materias-profesor/', views.obtener_materias_profesor, name='obtener_materias_profesor'),
     path('api/gacs-por-materia/<int:materia_id>/', views.obtener_gacs_por_materia, name='obtener_gacs_por_materia'),
+    
+    # URLs para descarga de PDFs
+    path('api/pdf/resumen-general/', views.descargar_pdf_resumen_general, name='descargar_pdf_resumen_general'),
+    path('api/pdf/por-gac/', views.descargar_pdf_por_gac, name='descargar_pdf_por_gac'),
+    path('api/pdf/por-profesor/', views.descargar_pdf_por_profesor, name='descargar_pdf_por_profesor'),
+    path('api/pdf/por-estudiante/', views.descargar_pdf_por_estudiante, name='descargar_pdf_por_estudiante'),
 
     # Router URLs después (más generales)
     path('api/', include(router.urls)),

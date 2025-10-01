@@ -10,8 +10,16 @@ from .serializers import GACSerializer, RACSerializer, MateriaSerializer, Evalua
 from usuarios.models import Profesor, Estudiante
 from django.db.models import Avg, Count, F, Max
 import random
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 import logging
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from datetime import datetime
+import io
 
 # Create your views here.
 
@@ -1025,4 +1033,485 @@ def obtener_gacs_por_materia(request, materia_id):
         
     except Exception as e:
         print(f"Error en obtener_gacs_por_materia: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+# ==================== FUNCIONES PARA GENERAR PDFs ====================
+
+def crear_estilos_pdf():
+    """Crear estilos personalizados para los PDFs"""
+    styles = getSampleStyleSheet()
+    
+    # Estilo para título principal
+    titulo_style = ParagraphStyle(
+        'TituloPrincipal',
+        parent=styles['Heading1'],
+        fontSize=18,
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        textColor=colors.darkblue
+    )
+    
+    # Estilo para subtítulos
+    subtitulo_style = ParagraphStyle(
+        'Subtitulo',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceAfter=20,
+        alignment=TA_LEFT,
+        textColor=colors.darkblue
+    )
+    
+    # Estilo para texto normal
+    texto_style = ParagraphStyle(
+        'TextoNormal',
+        parent=styles['Normal'],
+        fontSize=10,
+        spaceAfter=12,
+        alignment=TA_LEFT
+    )
+    
+    return {
+        'titulo': titulo_style,
+        'subtitulo': subtitulo_style,
+        'texto': texto_style,
+        'normal': styles['Normal']
+    }
+
+def crear_tabla_pdf(data, headers, col_widths=None):
+    """Crear una tabla para el PDF"""
+    if not data:
+        data = [['No hay datos disponibles']]
+    
+    # Agregar headers si no están incluidos en los datos
+    if headers and data[0] != headers:
+        data.insert(0, headers)
+    
+    # Crear la tabla
+    table = Table(data)
+    
+    # Estilo de la tabla
+    table_style = TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
+    ])
+    
+    table.setStyle(table_style)
+    return table
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def descargar_pdf_resumen_general(request):
+    """Descargar PDF del resumen general"""
+    try:
+        # Obtener datos del resumen general
+        evaluaciones = Evaluacion.objects.all()
+        promedio_general = evaluaciones.aggregate(promedio=Avg("puntaje"))["promedio"] or 0
+        total_evaluaciones = evaluaciones.values("profesor", "estudiante").distinct().count()
+        total_estudiantes = evaluaciones.values("estudiante").distinct().count()
+        total_profesores = evaluaciones.values("profesor").distinct().count()
+        total_gacs = evaluaciones.values("rac__gacs__id").distinct().count()
+
+        # Crear buffer para el PDF
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        story = []
+        estilos = crear_estilos_pdf()
+
+        # Título
+        story.append(Paragraph("INFORME RESUMEN GENERAL", estilos['titulo']))
+        story.append(Paragraph(f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos['texto']))
+        story.append(Spacer(1, 20))
+
+        # Resumen general
+        story.append(Paragraph("RESUMEN GENERAL", estilos['subtitulo']))
+        resumen_data = [
+            ['Métrica', 'Valor'],
+            ['Total de Evaluaciones', str(total_evaluaciones)],
+            ['Total de Estudiantes', str(total_estudiantes)],
+            ['Total de Profesores', str(total_profesores)],
+            ['Total de GACs Evaluados', str(total_gacs)],
+            ['Promedio General', f"{promedio_general:.2f}"]
+        ]
+        story.append(crear_tabla_pdf(resumen_data, None))
+        story.append(Spacer(1, 20))
+
+        # Gráfico por GAC
+        story.append(Paragraph("PROMEDIO POR GAC", estilos['subtitulo']))
+        grafico_gacs_qs = (
+            evaluaciones.values("rac__gacs__id")
+            .annotate(
+                numero=F("rac__gacs__numero"),
+                descripcion=F("rac__gacs__descripcion"),
+                promedio=Avg("puntaje"),
+            )
+            .order_by("numero")
+        )
+        
+        gac_data = [['GAC', 'Descripción', 'Promedio']]
+        for g in grafico_gacs_qs:
+            gac_data.append([
+                f"GAC {g['numero']}",
+                g["descripcion"][:50] + "..." if len(g["descripcion"]) > 50 else g["descripcion"],
+                f"{g['promedio']:.2f}"
+            ])
+        
+        story.append(crear_tabla_pdf(gac_data, None))
+        story.append(Spacer(1, 20))
+
+        # Gráfico por Profesor
+        story.append(Paragraph("PROMEDIO POR PROFESOR", estilos['subtitulo']))
+        grafico_profesores_qs = (
+            evaluaciones.values("profesor__nombre")
+            .annotate(promedio=Avg("puntaje"))
+            .order_by("profesor__nombre")
+        )
+        
+        profesor_data = [['Profesor', 'Promedio']]
+        for g in grafico_profesores_qs:
+            profesor_data.append([g["profesor__nombre"], f"{g['promedio']:.2f}"])
+        
+        story.append(crear_tabla_pdf(profesor_data, None))
+
+        # Construir PDF
+        doc.build(story)
+        buffer.seek(0)
+
+        # Crear respuesta HTTP
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="resumen_general_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        return response
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def descargar_pdf_por_gac(request):
+    """Descargar PDF del informe por GAC"""
+    try:
+        # Obtener datos del informe por GAC
+        primer_semestre = ['Virtual 1', '1A', '1B', '1C']
+        segundo_semestre = ['2A', '2B', '2C']
+        
+        evaluaciones = Evaluacion.objects.select_related('estudiante', 'rac').prefetch_related('rac__gacs').all()
+        
+        if not evaluaciones.exists():
+            return JsonResponse({'error': 'No hay evaluaciones disponibles'}, status=404)
+        
+        # Procesar datos (mismo código que en informes_por_gac_semestre)
+        gacs_data = {}
+        
+        for evaluacion in evaluaciones:
+            try:
+                grupo = evaluacion.estudiante.grupo
+                
+                if grupo in primer_semestre:
+                    semestre = 'Primer Semestre'
+                elif grupo in segundo_semestre:
+                    semestre = 'Segundo Semestre'
+                else:
+                    continue
+                
+                for gac in evaluacion.rac.gacs.all():
+                    gac_numero = gac.numero
+                    
+                    if gac_numero not in gacs_data:
+                        gacs_data[gac_numero] = {
+                            'gac_numero': gac_numero,
+                            'gac_descripcion': gac.descripcion,
+                            'primer_semestre': {'puntajes': [], 'promedio': 0},
+                            'segundo_semestre': {'puntajes': [], 'promedio': 0}
+                        }
+                    
+                    gacs_data[gac_numero][f"{semestre.lower().replace(' ', '_')}"]['puntajes'].append(evaluacion.puntaje)
+            except Exception as e:
+                continue
+        
+        # Calcular promedios
+        for gac_data in gacs_data.values():
+            if gac_data['primer_semestre']['puntajes']:
+                gac_data['primer_semestre']['promedio'] = sum(gac_data['primer_semestre']['puntajes']) / len(gac_data['primer_semestre']['puntajes'])
+                gac_data['primer_semestre']['total_evaluaciones'] = len(gac_data['primer_semestre']['puntajes'])
+            else:
+                gac_data['primer_semestre']['total_evaluaciones'] = 0
+            
+            if gac_data['segundo_semestre']['puntajes']:
+                gac_data['segundo_semestre']['promedio'] = sum(gac_data['segundo_semestre']['puntajes']) / len(gac_data['segundo_semestre']['puntajes'])
+                gac_data['segundo_semestre']['total_evaluaciones'] = len(gac_data['segundo_semestre']['puntajes'])
+            else:
+                gac_data['segundo_semestre']['total_evaluaciones'] = 0
+
+        # Crear PDF
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        story = []
+        estilos = crear_estilos_pdf()
+
+        # Título
+        story.append(Paragraph("INFORME POR GAC", estilos['titulo']))
+        story.append(Paragraph(f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos['texto']))
+        story.append(Spacer(1, 20))
+
+        # Tabla de datos
+        story.append(Paragraph("PROMEDIOS DE GAC POR SEMESTRE", estilos['subtitulo']))
+        
+        gac_data_table = [['GAC', 'Descripción', '1er Semestre', 'Evaluaciones 1er', '2do Semestre', 'Evaluaciones 2do']]
+        for gac_data in sorted(gacs_data.values(), key=lambda x: x['gac_numero']):
+            gac_data_table.append([
+                f"GAC {gac_data['gac_numero']}",
+                gac_data['gac_descripcion'][:30] + "..." if len(gac_data['gac_descripcion']) > 30 else gac_data['gac_descripcion'],
+                f"{gac_data['primer_semestre']['promedio']:.2f}",
+                str(gac_data['primer_semestre']['total_evaluaciones']),
+                f"{gac_data['segundo_semestre']['promedio']:.2f}",
+                str(gac_data['segundo_semestre']['total_evaluaciones'])
+            ])
+        
+        story.append(crear_tabla_pdf(gac_data_table, None))
+
+        # Construir PDF
+        doc.build(story)
+        buffer.seek(0)
+
+        # Crear respuesta HTTP
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="informe_por_gac_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        return response
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def descargar_pdf_por_profesor(request):
+    """Descargar PDF del informe por profesor"""
+    try:
+        # Obtener datos del informe por profesor
+        evaluaciones = Evaluacion.objects.select_related(
+            'profesor', 'estudiante', 'rac'
+        ).prefetch_related('rac__materias').all()
+        
+        if not evaluaciones.exists():
+            return JsonResponse({'error': 'No hay evaluaciones disponibles'}, status=404)
+        
+        # Procesar datos (mismo código que en informes_por_profesor_materia)
+        profesores_data = {}
+        
+        for evaluacion in evaluaciones:
+            try:
+                profesor_id = evaluacion.profesor.id
+                profesor_nombre = evaluacion.profesor.nombre
+                
+                materias = evaluacion.rac.materias.all()
+                
+                for materia in materias:
+                    materia_id = materia.id
+                    materia_nombre = materia.nombre
+                    
+                    key = f"{profesor_id}_{materia_id}"
+                    
+                    if key not in profesores_data:
+                        profesores_data[key] = {
+                            'profesor_id': profesor_id,
+                            'profesor_nombre': profesor_nombre,
+                            'materia_id': materia_id,
+                            'materia_nombre': materia_nombre,
+                            'puntajes': [],
+                            'estudiantes_evaluados': set(),
+                            'total_estudiantes': 0
+                        }
+                    
+                    profesores_data[key]['puntajes'].append(evaluacion.puntaje)
+                    profesores_data[key]['estudiantes_evaluados'].add(evaluacion.estudiante.id)
+            except Exception as e:
+                continue
+        
+        # Calcular total de estudiantes por materia
+        for key, data in profesores_data.items():
+            try:
+                materia_id = data['materia_id']
+                total_estudiantes = Evaluacion.objects.filter(
+                    rac__materias__id=materia_id
+                ).values('estudiante').distinct().count()
+                data['total_estudiantes'] = total_estudiantes
+            except Exception as e:
+                data['total_estudiantes'] = 0
+        
+        # Calcular promedios y porcentajes
+        resultado = []
+        for data in profesores_data.values():
+            if data['puntajes']:
+                promedio = sum(data['puntajes']) / len(data['puntajes'])
+                estudiantes_evaluados = len(data['estudiantes_evaluados'])
+                total_estudiantes = data['total_estudiantes']
+                
+                porcentaje_evaluacion = (estudiantes_evaluados / total_estudiantes * 100) if total_estudiantes > 0 else 0
+                
+                if porcentaje_evaluacion <= 30:
+                    color_semaforo = 'Rojo'
+                elif porcentaje_evaluacion <= 60:
+                    color_semaforo = 'Amarillo'
+                else:
+                    color_semaforo = 'Verde'
+                
+                resultado.append({
+                    'profesor_nombre': data['profesor_nombre'],
+                    'materia_nombre': data['materia_nombre'],
+                    'promedio': round(promedio, 2),
+                    'estudiantes_evaluados': estudiantes_evaluados,
+                    'total_estudiantes': total_estudiantes,
+                    'porcentaje_evaluacion': round(porcentaje_evaluacion, 1),
+                    'color_semaforo': color_semaforo
+                })
+
+        # Crear PDF
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        story = []
+        estilos = crear_estilos_pdf()
+
+        # Título
+        story.append(Paragraph("INFORME POR PROFESOR Y MATERIA", estilos['titulo']))
+        story.append(Paragraph(f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos['texto']))
+        story.append(Spacer(1, 20))
+
+        # Tabla de datos
+        story.append(Paragraph("PROMEDIOS POR PROFESOR Y MATERIA", estilos['subtitulo']))
+        
+        profesor_data_table = [['Profesor', 'Materia', 'Promedio', 'Evaluados', 'Total', 'Progreso %', 'Estado']]
+        for item in resultado:
+            profesor_data_table.append([
+                item['profesor_nombre'][:20] + "..." if len(item['profesor_nombre']) > 20 else item['profesor_nombre'],
+                item['materia_nombre'][:25] + "..." if len(item['materia_nombre']) > 25 else item['materia_nombre'],
+                str(item['promedio']),
+                str(item['estudiantes_evaluados']),
+                str(item['total_estudiantes']),
+                f"{item['porcentaje_evaluacion']}%",
+                item['color_semaforo']
+            ])
+        
+        story.append(crear_tabla_pdf(profesor_data_table, None))
+
+        # Construir PDF
+        doc.build(story)
+        buffer.seek(0)
+
+        # Crear respuesta HTTP
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="informe_por_profesor_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        return response
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def descargar_pdf_por_estudiante(request):
+    """Descargar PDF del informe por estudiante"""
+    try:
+        # Obtener datos del informe por estudiante
+        evaluaciones = Evaluacion.objects.select_related(
+            'estudiante', 'profesor'
+        ).all()
+        
+        # Procesar datos (mismo código que en informes_por_estudiante_profesores)
+        estudiantes_data = {}
+        
+        for evaluacion in evaluaciones:
+            estudiante_id = evaluacion.estudiante.id
+            estudiante_nombre = evaluacion.estudiante.nombre
+            estudiante_grupo = evaluacion.estudiante.grupo
+            
+            if estudiante_id not in estudiantes_data:
+                estudiantes_data[estudiante_id] = {
+                    'estudiante_id': estudiante_id,
+                    'estudiante_nombre': estudiante_nombre,
+                    'estudiante_grupo': estudiante_grupo,
+                    'puntajes': [],
+                    'profesores_evaluadores': set()
+                }
+            
+            estudiantes_data[estudiante_id]['puntajes'].append(evaluacion.puntaje)
+            estudiantes_data[estudiante_id]['profesores_evaluadores'].add(evaluacion.profesor.nombre)
+        
+        # Calcular promedios
+        resultado = []
+        for data in estudiantes_data.values():
+            if data['puntajes']:
+                promedio = sum(data['puntajes']) / len(data['puntajes'])
+                
+                resultado.append({
+                    'estudiante_nombre': data['estudiante_nombre'],
+                    'estudiante_grupo': data['estudiante_grupo'],
+                    'promedio': round(promedio, 2),
+                    'total_evaluaciones': len(data['puntajes']),
+                    'profesores_evaluadores': list(data['profesores_evaluadores'])
+                })
+        
+        # Ordenar por promedio descendente
+        resultado.sort(key=lambda x: x['promedio'], reverse=True)
+
+        # Crear PDF
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        story = []
+        estilos = crear_estilos_pdf()
+
+        # Título
+        story.append(Paragraph("INFORME POR ESTUDIANTE", estilos['titulo']))
+        story.append(Paragraph(f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos['texto']))
+        story.append(Spacer(1, 20))
+
+        # Resumen estadístico
+        story.append(Paragraph("RESUMEN ESTADÍSTICO", estilos['subtitulo']))
+        total_estudiantes = len(resultado)
+        promedio_general = sum(e['promedio'] for e in resultado) / total_estudiantes if total_estudiantes > 0 else 0
+        estudiantes_aprobados = len([e for e in resultado if e['promedio'] >= 3.0])
+        
+        resumen_data = [
+            ['Métrica', 'Valor'],
+            ['Total de Estudiantes', str(total_estudiantes)],
+            ['Promedio General', f"{promedio_general:.2f}"],
+            ['Estudiantes Aprobados', str(estudiantes_aprobados)],
+            ['Porcentaje de Aprobación', f"{(estudiantes_aprobados/total_estudiantes*100):.1f}%" if total_estudiantes > 0 else "0%"]
+        ]
+        story.append(crear_tabla_pdf(resumen_data, None))
+        story.append(Spacer(1, 20))
+
+        # Tabla de estudiantes (solo los primeros 50 para evitar PDFs muy largos)
+        story.append(Paragraph("LISTA DE ESTUDIANTES (Top 50)", estilos['subtitulo']))
+        
+        estudiante_data_table = [['Estudiante', 'Grupo', 'Promedio', 'Evaluaciones', 'Profesores Evaluadores']]
+        for item in resultado[:50]:  # Limitar a 50 estudiantes
+            profesores_str = ', '.join(item['profesores_evaluadores'][:3])  # Máximo 3 profesores
+            if len(item['profesores_evaluadores']) > 3:
+                profesores_str += "..."
+            
+            estudiante_data_table.append([
+                item['estudiante_nombre'][:25] + "..." if len(item['estudiante_nombre']) > 25 else item['estudiante_nombre'],
+                item['estudiante_grupo'],
+                str(item['promedio']),
+                str(item['total_evaluaciones']),
+                profesores_str[:30] + "..." if len(profesores_str) > 30 else profesores_str
+            ])
+        
+        story.append(crear_tabla_pdf(estudiante_data_table, None))
+
+        # Construir PDF
+        doc.build(story)
+        buffer.seek(0)
+
+        # Crear respuesta HTTP
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="informe_por_estudiante_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        return response
+
+    except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
