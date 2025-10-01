@@ -255,7 +255,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.put(
-        `http://3.17.149.166/perfil/actualizar/`, // sin /api/
+        `${API_URL.replace('/api', '')}/perfil/actualizar/`, // sin /api/
         datos,
         {
           headers: {
@@ -557,7 +557,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.get(
-        `http://3.17.149.166/competencias/api/materias/`,
+        `${API_URL.replace('/api', '')}/competencias/api/materias/`,
         {
           headers: {
             Authorization: `Token ${token}`,
@@ -787,7 +787,7 @@ export const actualizarPerfilUsuario = async (datos) => {
 
   try {
     const response = await axios.put(
-      `http://3.17.149.166/perfil/actualizar/`, // sin /api/
+      `${API_URL.replace('/api', '')}/perfil/actualizar/`, // sin /api/
       datos,
       {
         headers: {

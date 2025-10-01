@@ -16,7 +16,7 @@ export const buildPhotoUrl = (fotoUrl) => {
   }
   
   // Construir URL completa con el backend
-  return `http://localhost:8000${fotoUrl}`;
+  return `http://3.17.149.166${fotoUrl}`;
 };
 
 /**
