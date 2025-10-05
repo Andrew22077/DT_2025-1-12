@@ -27,6 +27,7 @@ urlpatterns = [
     path('api/informes/estudiante-profesores/', views.informes_por_estudiante_profesores, name='informes_por_estudiante_profesores'),
     path('api/informes/detalle-profesor-materia/<int:profesor_id>/<int:materia_id>/', views.informes_detalle_profesor_materia, name='informes_detalle_profesor_materia'),
     path('api/debug-datos/', views.debug_datos, name='debug_datos'),
+    path('api/materias/', views.obtener_todas_materias, name='obtener_todas_materias'),
     path('api/materias-profesor/', views.obtener_materias_profesor, name='obtener_materias_profesor'),
     path('api/gacs-por-materia/<int:materia_id>/', views.obtener_gacs_por_materia, name='obtener_gacs_por_materia'),
     

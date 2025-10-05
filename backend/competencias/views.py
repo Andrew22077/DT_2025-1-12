@@ -26,14 +26,17 @@ import io
 class GACViewSet(viewsets.ModelViewSet):
     queryset = GAC.objects.all()
     serializer_class = GACSerializer
+    permission_classes = [IsAuthenticated]
 
 class RACViewSet(viewsets.ModelViewSet):
     queryset = RAC.objects.all()
     serializer_class = RACSerializer
+    permission_classes = [IsAuthenticated]
 
 class MateriaViewSet(viewsets.ModelViewSet):
     queryset = Materia.objects.all()
     serializer_class = MateriaSerializer
+    permission_classes = [IsAuthenticated]
 
 class EvaluacionViewSet(viewsets.ModelViewSet):
     queryset = Evaluacion.objects.all()
@@ -945,6 +948,27 @@ def debug_datos(request):
         }, safe=False)
         
     except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def obtener_todas_materias(request):
+    """Obtener todas las materias disponibles"""
+    try:
+        materias = Materia.objects.all()
+        
+        materias_data = []
+        for materia in materias:
+            materias_data.append({
+                'id': materia.id,
+                'nombre': materia.nombre,
+                'descripcion': materia.descripcion
+            })
+        
+        return JsonResponse(materias_data, safe=False)
+        
+    except Exception as e:
+        print(f"Error en obtener_todas_materias: {e}")
         return JsonResponse({"error": str(e)}, status=500)
 
 @api_view(['GET'])

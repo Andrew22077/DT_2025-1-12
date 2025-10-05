@@ -114,7 +114,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.put(
-        `http://3.17.149.166/api/api/profesores/${id}/foto/`,
+        `http://3.17.149.166/api/profesores/${id}/foto/`,
         formData,
         {
           headers: {
@@ -548,7 +548,7 @@ export const useUserApi = () => {
     }
   }, []);
 
-  // Obtener todas las materias
+  // Obtener todas las materias disponibles
   const getMaterias = useCallback(async () => {
     const token = localStorage.getItem("token");
     if (!token) throw new Error("Token no encontrado");
@@ -556,8 +556,9 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
+      // Usar el endpoint específico para todas las materias
       const response = await axios.get(
-        `http://3.17.149.166/api/competencias/api/materias/`,
+        `http://3.17.149.166/api/competencias/api/materias-profesor/`,
         {
           headers: {
             Authorization: `Token ${token}`,
