@@ -519,6 +519,164 @@ def resultados_estudiante(request, estudiante_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def resultados_estudiante_por_semestre(request, estudiante_id):
+    """Obtener resultados de un estudiante separados por semestre"""
+    try:
+        estudiante = Estudiante.objects.get(pk=estudiante_id)
+        
+        # Definir grupos por semestre
+        primer_semestre = ['Virtual 1', '1A', '1B', '1C']
+        segundo_semestre = ['2A', '2B', '2C']
+        
+        # Determinar el semestre actual del estudiante
+        grupo_actual = estudiante.grupo
+        es_segundo_semestre = grupo_actual in segundo_semestre
+        
+        # Obtener todas las evaluaciones del estudiante
+        evaluaciones = Evaluacion.objects.filter(estudiante=estudiante)
+        
+        # Separar evaluaciones por semestre basándose en el grupo actual
+        evaluaciones_primer_semestre = []
+        evaluaciones_segundo_semestre = []
+        
+        for evaluacion in evaluaciones:
+            # Si el estudiante está en segundo semestre, asumimos que las evaluaciones más antiguas son de primer semestre
+            # y las más recientes son de segundo semestre
+            if es_segundo_semestre:
+                # Por ahora, todas las evaluaciones se consideran del semestre actual
+                # En el futuro se podría mejorar esta lógica basándose en fechas
+                evaluaciones_segundo_semestre.append(evaluacion)
+            else:
+                evaluaciones_primer_semestre.append(evaluacion)
+        
+        def procesar_evaluaciones(evaluaciones_list, semestre_nombre):
+            if not evaluaciones_list:
+                return {
+                    "semestre": semestre_nombre,
+                    "resumen_general": {
+                        "promedio_general": 0,
+                        "total_evaluaciones": 0,
+                        "total_gacs_evaluados": 0,
+                        "total_racs_evaluados": 0,
+                    },
+                    "grafico_profesores": [],
+                    "grafico_gacs": [],
+                    "evaluaciones": [],
+                }
+            
+            # Promedio general
+            promedio_general = sum(e.puntaje for e in evaluaciones_list) / len(evaluaciones_list)
+            
+            # Totales
+            total_evaluaciones = len(set(e.profesor.id for e in evaluaciones_list))
+            total_gacs = len(set(gac.id for e in evaluaciones_list for gac in e.rac.gacs.all()))
+            total_racs = len(set(e.rac.id for e in evaluaciones_list))
+            
+            # === Gráfico: promedio por profesor ===
+            profesores_data = {}
+            for e in evaluaciones_list:
+                if e.profesor.nombre not in profesores_data:
+                    profesores_data[e.profesor.nombre] = []
+                profesores_data[e.profesor.nombre].append(e.puntaje)
+            
+            grafico_profesores = [
+                {"profesor": nombre, "promedio": round(sum(puntajes) / len(puntajes), 2)}
+                for nombre, puntajes in profesores_data.items()
+            ]
+            
+            # === Gráfico: promedio por GAC ===
+            gacs_data = {}
+            for e in evaluaciones_list:
+                for gac in e.rac.gacs.all():
+                    gac_key = f"GAC {gac.numero}"
+                    if gac_key not in gacs_data:
+                        gacs_data[gac_key] = {
+                            "gac": gac_key,
+                            "descripcion": gac.descripcion,
+                            "puntajes": []
+                        }
+                    gacs_data[gac_key]["puntajes"].append(e.puntaje)
+            
+            grafico_gacs = [
+                {
+                    "gac": data["gac"],
+                    "descripcion": data["descripcion"],
+                    "promedio": round(sum(data["puntajes"]) / len(data["puntajes"]), 2)
+                }
+                for data in gacs_data.values()
+            ]
+            
+            # === Lista de evaluaciones detalladas ===
+            evaluaciones_detalle = [
+                {
+                    "profesor": e.profesor.nombre,
+                    "rac_numero": e.rac.numero,
+                    "rac_descripcion": e.rac.descripcion,
+                    "puntaje": e.puntaje,
+                }
+                for e in evaluaciones_list
+            ]
+            
+            return {
+                "semestre": semestre_nombre,
+                "resumen_general": {
+                    "promedio_general": round(promedio_general, 2),
+                    "total_evaluaciones": total_evaluaciones,
+                    "total_gacs_evaluados": total_gacs,
+                    "total_racs_evaluados": total_racs,
+                },
+                "grafico_profesores": grafico_profesores,
+                "grafico_gacs": grafico_gacs,
+                "evaluaciones": evaluaciones_detalle,
+            }
+        
+        # Procesar datos para cada semestre
+        datos_primer_semestre = procesar_evaluaciones(evaluaciones_primer_semestre, "Primer Semestre")
+        datos_segundo_semestre = procesar_evaluaciones(evaluaciones_segundo_semestre, "Segundo Semestre")
+        
+        # Si el estudiante está en segundo semestre, también buscar datos de primer semestre
+        if es_segundo_semestre:
+            # Buscar si hay un estudiante con el mismo documento pero en grupo de primer semestre
+            # Esto asume que el estudiante mantiene el mismo documento
+            try:
+                estudiante_primer_semestre = Estudiante.objects.filter(
+                    documento=estudiante.documento,
+                    grupo__in=primer_semestre
+                ).first()
+                
+                if estudiante_primer_semestre:
+                    evaluaciones_primer_semestre = Evaluacion.objects.filter(
+                        estudiante=estudiante_primer_semestre
+                    )
+                    datos_primer_semestre = procesar_evaluaciones(
+                        list(evaluaciones_primer_semestre), 
+                        "Primer Semestre"
+                    )
+            except Exception as e:
+                print(f"Error buscando estudiante de primer semestre: {e}")
+        
+        data = {
+            "estudiante": {
+                "id": estudiante.id,
+                "nombre": estudiante.nombre,
+                "grupo": estudiante.grupo,
+                "documento": estudiante.documento,
+                "es_segundo_semestre": es_segundo_semestre,
+            },
+            "primer_semestre": datos_primer_semestre,
+            "segundo_semestre": datos_segundo_semestre,
+        }
+        
+        return JsonResponse(data, safe=False)
+        
+    except Estudiante.DoesNotExist:
+        return JsonResponse({"error": "Estudiante no encontrado"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def resultados_globales(request):
     try:
         # Todas las evaluaciones

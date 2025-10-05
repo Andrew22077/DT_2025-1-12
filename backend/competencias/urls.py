@@ -19,6 +19,7 @@ urlpatterns = [
     path('api/evaluaciones/estadisticas/', views.estadisticas_evaluaciones, name='estadisticas_evaluaciones'),
     path('api/evaluaciones/estadisticas-por-gac/', views.estadisticas_por_gac, name='estadisticas_por_gac'),
     path('api/evaluaciones/resultados-estudiante/<int:estudiante_id>/', views.resultados_estudiante, name='resultados_estudiante'),
+    path('api/evaluaciones/resultados-estudiante-semestre/<int:estudiante_id>/', views.resultados_estudiante_por_semestre, name='resultados_estudiante_por_semestre'),
     path('api/evaluaciones/resultados-globales/', views.resultados_globales, name='resultados_globales'),
     
     # Nuevas APIs para informes

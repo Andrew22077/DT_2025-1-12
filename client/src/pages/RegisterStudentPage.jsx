@@ -50,6 +50,10 @@ const RegisterStudentPage = ({ editing = false, estudiante = null }) => {
         // Actualizar estudiante existente
         await updateEstudiante(estudiante.id, formData);
         setMensaje("Estudiante actualizado exitosamente");
+        // Redirigir después de 2 segundos para edición
+        setTimeout(() => {
+          navigate("/estudiantes");
+        }, 2000);
       } else {
         // Crear nuevo estudiante
         await registerEstudiante(formData);
@@ -62,12 +66,9 @@ const RegisterStudentPage = ({ editing = false, estudiante = null }) => {
           grupo: "",
           estado: "prematricula",
         });
-      }
-
-      // Redirigir después de 2 segundos
-      setTimeout(() => {
+        // Redirigir inmediatamente después de crear estudiante
         navigate("/estudiantes");
-      }, 2000);
+      }
 
     } catch (error) {
       console.error("Error:", error);

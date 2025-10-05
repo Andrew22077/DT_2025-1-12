@@ -206,6 +206,27 @@ export const useEvaluacionApi = () => {
     }
   };
 
+  const obtenerResultadosEstudiantePorSemestre = async (estudianteId) => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/evaluaciones/resultados-estudiante-semestre/${estudianteId}/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al obtener resultados del estudiante por semestre");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error en obtenerResultadosEstudiantePorSemestre:", error);
+      throw error;
+    }
+  };
+
   // 🔥 Nuevo método para resultados globales
   const obtenerResultadosGlobales = async () => {
     try {
@@ -482,6 +503,7 @@ export const useEvaluacionApi = () => {
     obtenerEstadisticasGenerales,
     obtenerEstadisticasPorGAC,
     obtenerResultadosEstudiante,
+    obtenerResultadosEstudiantePorSemestre,
     obtenerResultadosGlobales,
     obtenerInformesGACSemestre,
     obtenerInformesProfesorMateria,
