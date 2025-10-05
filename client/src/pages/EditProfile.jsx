@@ -3,7 +3,7 @@ import { useUserApi } from "../api/UserApi";
 import { buildPhotoUrl, isValidPhotoUrl } from "../utils/photoUtils";
 
 const EditProfile = () => {
-  const { getCurrentUser, actualizarPerfil, actualizarFoto, loading, error } =
+  const { getCurrentUser, actualizarPerfil, actualizarFoto, getMateriasProfesor, loading, error } =
     useUserApi();
 
   const [user, setUser] = useState(null);
@@ -18,6 +18,7 @@ const EditProfile = () => {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
+  const [materias, setMaterias] = useState([]);
 
   // Cargar datos del usuario al montar el componente
   useEffect(() => {
@@ -48,6 +49,16 @@ const EditProfile = () => {
       } else {
         console.log("No hay foto válida, usando avatar por defecto");
         setPreviewUrl(null);
+      }
+
+      // Cargar materias del profesor
+      try {
+        const materiasData = await getMateriasProfesor();
+        console.log("Materias del profesor cargadas:", materiasData);
+        setMaterias(materiasData.materias || []);
+      } catch (materiasError) {
+        console.error("Error al cargar materias:", materiasError);
+        // No mostrar error de materias como error crítico, solo log
       }
     } catch (error) {
       console.error("Error al cargar datos del usuario:", error);
@@ -364,6 +375,37 @@ const EditProfile = () => {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Sección de materias */}
+            <div className="pb-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                Materias Asignadas
+              </h2>
+              
+              {materias.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {materias.map((materia) => (
+                    <div
+                      key={materia.id}
+                      className="bg-blue-50 rounded-lg p-4 border border-blue-200"
+                    >
+                      <h3 className="font-semibold text-blue-800 text-lg">
+                        {materia.nombre}
+                      </h3>
+                      <p className="text-blue-600 text-sm mt-1">
+                        {materia.descripcion}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-gray-50 rounded-lg p-6 text-center">
+                  <p className="text-gray-600">
+                    No tienes materias asignadas actualmente.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Botones de acción */}

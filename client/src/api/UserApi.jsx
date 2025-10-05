@@ -114,7 +114,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.put(
-        `${API_URL}/profesores/${id}/foto/`,
+        `http://3.17.149.166/api/api/profesores/${id}/foto/`,
         formData,
         {
           headers: {
@@ -574,6 +574,32 @@ export const useUserApi = () => {
     }
   }, []);
 
+  // Obtener materias del profesor autenticado
+  const getMateriasProfesor = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) throw new Error("Token no encontrado");
+
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await axios.get(
+        `http://3.17.149.166/api/competencias/api/materias-profesor/`,
+        {
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      console.error("Error al obtener materias del profesor:", error);
+      setError(error.message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     // Estados
     loading,
@@ -595,6 +621,7 @@ export const useUserApi = () => {
 
     // Funciones de materias
     getMaterias,
+    getMateriasProfesor,
 
     // Funciones de estudiantes
     getEstudiantes,

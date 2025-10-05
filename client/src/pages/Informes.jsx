@@ -184,20 +184,10 @@ const Informes = () => {
             </div>
           </div>
           
-          {/* Botón de prueba visible */}
-          <div className="mb-4 p-4 bg-yellow-100 border border-yellow-400 rounded-lg">
-            <p className="text-yellow-800 font-semibold mb-2">🔧 BOTÓN DE PRUEBA - Si ves esto, los cambios se están aplicando</p>
-            <button
-              onClick={() => alert("¡Los cambios funcionan!")}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              Probar Cambios
-            </button>
-          </div>
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
               {[
-                ["general", "Resumen GeneraLAAAAAAAAAAAA"],
+                ["general", "Resumen General"],
                 ["gac", "Por GAC"],
                 ["profesor", "Por Profesor"],
                 ["estudiante", "Por Estudiante"],
