@@ -71,11 +71,28 @@ const RegisterStudentPage = ({ editing = false, estudiante = null }) => {
 
     } catch (error) {
       console.error("Error:", error);
-      setError(
-        editing 
-          ? "Error al actualizar el estudiante. Verifica los datos."
-          : "Error al registrar el estudiante. Verifica los datos."
-      );
+      
+      // Extraer mensaje de error más específico
+      let errorMessage = editing 
+        ? "Error al actualizar el estudiante. Verifica los datos."
+        : "Error al registrar el estudiante. Verifica los datos.";
+      
+      if (error.response?.data) {
+        const errorData = error.response.data;
+        if (errorData.detalles) {
+          // Mostrar errores de validación específicos
+          const errorDetails = Object.entries(errorData.detalles)
+            .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+            .join('; ');
+          errorMessage = `Errores de validación: ${errorDetails}`;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

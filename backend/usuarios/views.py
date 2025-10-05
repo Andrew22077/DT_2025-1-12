@@ -443,15 +443,30 @@ def estudiante_detail(request, id):
 def register_estudiante(request):
     """Registrar un nuevo estudiante"""
     try:
+        print(f"Datos recibidos para crear estudiante: {request.data}")
+        
         serializer = EstudianteSerializer(data=request.data)
         if serializer.is_valid():
-            estudiante = serializer.save()
+            try:
+                estudiante = serializer.save()
+                print(f"Estudiante creado exitosamente: {estudiante}")
+                return Response({
+                    'mensaje': 'Estudiante registrado exitosamente',
+                    'estudiante': EstudianteSerializer(estudiante).data
+                }, status=status.HTTP_201_CREATED)
+            except Exception as save_error:
+                print(f"Error al guardar estudiante: {save_error}")
+                return Response({
+                    'error': f'Error al guardar estudiante: {str(save_error)}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            print(f"Errores de validación: {serializer.errors}")
             return Response({
-                'mensaje': 'Estudiante registrado exitosamente',
-                'estudiante': EstudianteSerializer(estudiante).data
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                'error': 'Datos de validación incorrectos',
+                'detalles': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
+        print(f"Error inesperado al registrar estudiante: {e}")
         return Response({
             'error': f'Error al registrar estudiante: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

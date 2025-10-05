@@ -86,7 +86,9 @@ class Estudiante(models.Model):
 
     def save(self, *args, **kwargs):
         """Override save para aplicar validaciones"""
-        self.full_clean()
+        # Solo aplicar clean si no estamos en una operación de migración
+        if not kwargs.get('skip_clean', False):
+            self.clean()
         super().save(*args, **kwargs)
     
     @property

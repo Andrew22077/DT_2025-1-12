@@ -139,6 +139,9 @@ class EstudianteSerializer(serializers.ModelSerializer):
 
     def validate_documento(self, value):
         """Validar formato del documento"""
+        if not value:
+            raise serializers.ValidationError("El documento es requerido")
+        
         # Limpiar el documento (solo números)
         documento_limpio = ''.join(filter(str.isdigit, str(value)))
         
@@ -152,15 +155,15 @@ class EstudianteSerializer(serializers.ModelSerializer):
 
     def validate_correo(self, value):
         """Validar formato del correo"""
-        if value:
-            return value.lower().strip()
-        return value
+        if not value:
+            raise serializers.ValidationError("El correo es requerido")
+        return value.lower().strip()
 
     def validate_grupo(self, value):
         """Validar y normalizar grupo"""
-        if value:
-            return value.strip().upper()
-        return value
+        if not value:
+            raise serializers.ValidationError("El grupo es requerido")
+        return value.strip().upper()
 
     def validate_estado(self, value):
         """Validar que el estado sea válido"""
