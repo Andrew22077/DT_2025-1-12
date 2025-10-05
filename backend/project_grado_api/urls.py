@@ -30,7 +30,7 @@ urlpatterns = [
     re_path(r'^api/profesores/(?P<id>[0-9]+)/update/$', views.update_profesor_status, name='update_profesor_status'),
     re_path(r'^api/profesores/(?P<id>[0-9]+)/foto/$', views.actualizar_foto_profesor, name='actualizar_foto_profesor'),
     re_path('import-excel-profesores', views.import_excel_profesores, name='import_excel_profesores'),
-    re_path(r'^perfil/actualizar/$', views.actualizar_perfil_usuario),
+    re_path(r'^api/perfil/actualizar/$', views.actualizar_perfil_usuario),
     re_path(r'api/export-excel-profesores', views.export_excel_profesores, name='export_excel_profesores'),
     re_path('listar-estudiantes', views.listar_estudiantes),
     re_path(r'api/estudiante/(?P<id>[0-9]+)', views.estudiante_detail, name='estudiante_detail'),

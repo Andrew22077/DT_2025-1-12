@@ -255,7 +255,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.put(
-        `http://3.17.149.166/api/perfil/actualizar/`, // sin /api/
+        `http://3.17.149.166/api/perfil/actualizar/`,
         datos,
         {
           headers: {
@@ -556,9 +556,9 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
-      // Usar el endpoint específico para todas las materias
-      const response = await axios.get(
-        `http://3.17.149.166/api/competencias/api/materias-profesor/`,
+        // Usar el endpoint específico para todas las materias
+        const response = await axios.get(
+          `http://3.17.149.166/api/competencias/api/materias/`,
         {
           headers: {
             Authorization: `Token ${token}`,
