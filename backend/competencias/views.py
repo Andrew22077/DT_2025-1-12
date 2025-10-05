@@ -517,6 +517,34 @@ def resultados_estudiante(request, estudiante_id):
         return JsonResponse({"error": "Estudiante no encontrado"}, status=404)
 
 
+def determinar_semestre_por_fecha(fecha_evaluacion, grupo_estudiante):
+    """
+    Determina si una evaluación pertenece al primer o segundo semestre
+    basándose en la fecha y el grupo del estudiante
+    """
+    from datetime import datetime
+    
+    # Definir grupos por semestre
+    primer_semestre_grupos = ['Virtual 1', '1A', '1B', '1C']
+    segundo_semestre_grupos = ['2A', '2B', '2C']
+    
+    # Definir fechas de corte para el año académico
+    # Se puede ajustar según el calendario académico de la universidad
+    mes = fecha_evaluacion.month
+    
+    # Lógica basada en fechas
+    if 1 <= mes <= 6:  # Enero a Junio = Primer Semestre
+        return 'primer_semestre'
+    elif 7 <= mes <= 12:  # Julio a Diciembre = Segundo Semestre
+        return 'segundo_semestre'
+    else:
+        # Si no está en ningún rango, usar el grupo del estudiante como fallback
+        if grupo_estudiante in segundo_semestre_grupos:
+            return 'segundo_semestre'
+        else:
+            return 'primer_semestre'
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def resultados_estudiante_por_semestre(request, estudiante_id):
@@ -535,19 +563,18 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
         # Obtener todas las evaluaciones del estudiante
         evaluaciones = Evaluacion.objects.filter(estudiante=estudiante)
         
-        # Separar evaluaciones por semestre basándose en el grupo actual
+        # Separar evaluaciones por semestre basándose en fechas
         evaluaciones_primer_semestre = []
         evaluaciones_segundo_semestre = []
         
         for evaluacion in evaluaciones:
-            # Si el estudiante está en segundo semestre, asumimos que las evaluaciones más antiguas son de primer semestre
-            # y las más recientes son de segundo semestre
-            if es_segundo_semestre:
-                # Por ahora, todas las evaluaciones se consideran del semestre actual
-                # En el futuro se podría mejorar esta lógica basándose en fechas
-                evaluaciones_segundo_semestre.append(evaluacion)
-            else:
+            # Usar la función para determinar el semestre
+            semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
+            
+            if semestre == 'primer_semestre':
                 evaluaciones_primer_semestre.append(evaluacion)
+            else:  # segundo_semestre
+                evaluaciones_segundo_semestre.append(evaluacion)
         
         def procesar_evaluaciones(evaluaciones_list, semestre_nombre):
             if not evaluaciones_list:
@@ -665,9 +692,53 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
             },
             "primer_semestre": datos_primer_semestre,
             "segundo_semestre": datos_segundo_semestre,
+            "clasificacion": {
+                "total_evaluaciones": len(evaluaciones),
+                "evaluaciones_primer_semestre": len(evaluaciones_primer_semestre),
+                "evaluaciones_segundo_semestre": len(evaluaciones_segundo_semestre),
+                "criterio_clasificacion": "Por fecha de evaluación (Enero-Junio: 1er semestre, Julio-Diciembre: 2do semestre)"
+            }
         }
         
         return JsonResponse(data, safe=False)
+        
+    except Estudiante.DoesNotExist:
+        return JsonResponse({"error": "Estudiante no encontrado"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def debug_clasificacion_semestres(request, estudiante_id):
+    """Endpoint de debug para ver cómo se clasifican las evaluaciones por semestre"""
+    try:
+        estudiante = Estudiante.objects.get(pk=estudiante_id)
+        evaluaciones = Evaluacion.objects.filter(estudiante=estudiante).order_by('fecha')
+        
+        debug_info = {
+            "estudiante": {
+                "id": estudiante.id,
+                "nombre": estudiante.nombre,
+                "grupo": estudiante.grupo,
+            },
+            "evaluaciones_detalle": []
+        }
+        
+        for evaluacion in evaluaciones:
+            semestre = determinar_semestre_por_fecha(evaluacion.fecha, estudiante.grupo)
+            debug_info["evaluaciones_detalle"].append({
+                "id": evaluacion.id,
+                "fecha": evaluacion.fecha.strftime("%Y-%m-%d %H:%M:%S"),
+                "mes": evaluacion.fecha.month,
+                "rac": evaluacion.rac.numero,
+                "profesor": evaluacion.profesor.nombre,
+                "puntaje": evaluacion.puntaje,
+                "semestre_asignado": semestre,
+                "criterio": "Por fecha" if 1 <= evaluacion.fecha.month <= 12 else "Por grupo"
+            })
+        
+        return JsonResponse(debug_info, safe=False)
         
     except Estudiante.DoesNotExist:
         return JsonResponse({"error": "Estudiante no encontrado"}, status=404)
