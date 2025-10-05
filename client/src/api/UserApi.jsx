@@ -558,7 +558,7 @@ export const useUserApi = () => {
       setError(null);
         // Usar el endpoint específico para todas las materias
         const response = await axios.get(
-          `http://3.17.149.166/api/competencias/api/materias/`,
+          `http://3.17.149.166/competencias/api/materias/`,
         {
           headers: {
             Authorization: `Token ${token}`,
