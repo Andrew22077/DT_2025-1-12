@@ -117,8 +117,11 @@ const Informes = () => {
   const cargarResultadosEstudiante = async (estudiante) => {
     const estudianteId = estudiante.estudiante_id;
     
+    console.log(`Cargando resultados para estudiante ${estudianteId} (${estudiante.estudiante_nombre})`);
+    
     // Si ya tenemos los resultados, no cargar de nuevo
     if (resultadosPorEstudiante[estudianteId]) {
+      console.log(`Resultados ya cargados para estudiante ${estudianteId}`);
       return;
     }
 
@@ -129,10 +132,14 @@ const Informes = () => {
       
       // Si el estudiante pertenece a segundo semestre, usar la API por semestre
       if (esSegundoSemestre(estudiante.estudiante_grupo)) {
+        console.log(`Estudiante ${estudianteId} es de segundo semestre, usando API por semestre`);
         resultados = await evaluacionApi.obtenerResultadosEstudiantePorSemestre(estudianteId);
+        console.log(`Resultados por semestre para ${estudianteId}:`, resultados);
       } else {
+        console.log(`Estudiante ${estudianteId} es de primer semestre, usando API normal`);
         // Para estudiantes de primer semestre, usar la API normal
         const resultadosNormales = await evaluacionApi.obtenerResultadosEstudiante(estudianteId);
+        console.log(`Resultados normales para ${estudianteId}:`, resultadosNormales);
         resultados = {
           estudiante: {
             id: estudianteId,
@@ -157,6 +164,7 @@ const Informes = () => {
         };
       }
       
+      console.log(`Guardando resultados para estudiante ${estudianteId}:`, resultados);
       setResultadosPorEstudiante(prev => ({
         ...prev,
         [estudianteId]: resultados
@@ -174,12 +182,15 @@ const Informes = () => {
   const cargarResultadosTodosEstudiantes = async () => {
     if (!estudiantesProfesores?.estudiantes_profesores) return;
     
+    console.log("Cargando resultados para", estudiantesProfesores.estudiantes_profesores.length, "estudiantes");
+    
     // Cargar resultados de todos los estudiantes en paralelo
     const promesas = estudiantesProfesores.estudiantes_profesores.map(estudiante => 
       cargarResultadosEstudiante(estudiante)
     );
     
     await Promise.allSettled(promesas);
+    console.log("Resultados cargados:", resultadosPorEstudiante);
   };
 
   // Funciones para descargar PDFs
@@ -226,6 +237,8 @@ const Informes = () => {
     const resultados = resultadosPorEstudiante[estudianteId];
     const cargando = cargandoResultados[estudianteId];
 
+    console.log(`Renderizando para estudiante ${estudianteId}:`, { resultados, cargando });
+
     if (cargando) {
       return (
         <div className="flex items-center justify-center py-2">
@@ -238,7 +251,7 @@ const Informes = () => {
     if (!resultados) {
       return (
         <div className="text-sm text-gray-400">
-          Sin datos
+          Sin datos (ID: {estudianteId})
         </div>
       );
     }
@@ -790,6 +803,9 @@ const Informes = () => {
                               <th className="px-4 py-2 text-left">
                                 Evaluaciones
                               </th>
+                              <th className="px-4 py-2 text-left">
+                                Acciones
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
@@ -814,11 +830,127 @@ const Informes = () => {
                                   <td className="px-4 py-2">
                                     {estudiante.total_evaluaciones}
                                   </td>
+                                  <td className="px-4 py-2">
+                                    <button
+                                      onClick={() => setEstudianteSeleccionado(estudiante)}
+                                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                    >
+                                      Ver Detalles
+                                    </button>
+                                  </td>
                                 </tr>
                               )
                             )}
                           </tbody>
                         </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Modal de detalles del estudiante */}
+                {estudianteSeleccionado && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-semibold">
+                          Detalles de {estudianteSeleccionado.estudiante_nombre}
+                        </h3>
+                        <button
+                          onClick={() => setEstudianteSeleccionado(null)}
+                          className="text-gray-500 hover:text-gray-700"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <div className="space-y-6">
+                        {/* Información general */}
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                          <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                            📊 Información General
+                          </h4>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-sm text-gray-600">Grupo:</p>
+                              <p className="font-medium">{estudianteSeleccionado.estudiante_grupo}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-600">Promedio General:</p>
+                              <p className={`font-bold text-lg ${getColorByPuntaje(estudianteSeleccionado.promedio)}`}>
+                                {estudianteSeleccionado.promedio}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm text-gray-600">Total Evaluaciones:</p>
+                              <p className="font-medium">{estudianteSeleccionado.total_evaluaciones}</p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Evaluaciones detalladas */}
+                        <div className="bg-white border rounded-lg p-4">
+                          <h4 className="text-lg font-semibold text-gray-800 mb-3">
+                            📝 Evaluaciones Detalladas
+                          </h4>
+                          <div className="space-y-3">
+                            {estudianteSeleccionado.evaluaciones.map((evaluacion, index) => (
+                              <div key={index} className="bg-gray-50 p-3 rounded-lg">
+                                <div className="flex justify-between items-center">
+                                  <div>
+                                    <p className="font-medium text-gray-800">
+                                      RAC {evaluacion.rac_numero}
+                                    </p>
+                                    <p className="text-sm text-gray-600">
+                                      {evaluacion.rac_descripcion}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {new Date(evaluacion.fecha).toLocaleDateString()}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className={`text-lg font-bold ${getColorByPuntaje(evaluacion.puntaje)}`}>
+                                      {evaluacion.puntaje}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Resultados por GAC */}
+                        {estudianteSeleccionado.gacs && estudianteSeleccionado.gacs.length > 0 && (
+                          <div className="bg-white border rounded-lg p-4">
+                            <h4 className="text-lg font-semibold text-gray-800 mb-3">
+                              🎯 Resultados por GAC
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {estudianteSeleccionado.gacs.map((gac, gacIndex) => (
+                                <div key={gacIndex} className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                  <div className="flex justify-between items-center">
+                                    <div>
+                                      <p className="font-medium text-blue-800">
+                                        {gac.gac}
+                                      </p>
+                                      <p className="text-sm text-blue-600">
+                                        {gac.descripcion}
+                                      </p>
+                                      <p className="text-xs text-blue-500">
+                                        {gac.total_evaluaciones} evaluación(es)
+                                      </p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className={`text-lg font-bold ${getColorByPuntaje(gac.promedio)}`}>
+                                        {gac.promedio}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -936,14 +1068,26 @@ const Informes = () => {
                   <h2 className="text-2xl font-semibold text-gray-800">
                     Promedios por Estudiante y Profesores Evaluadores
                   </h2>
-                  <button
-                    onClick={() => handleDescargarPDF("estudiante")}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <FaDownload />
-                    {loading ? "Generando..." : "Descargar PDF"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        console.log("Forzando recarga de datos...");
+                        setResultadosPorEstudiante({});
+                        cargarResultadosTodosEstudiantes();
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      🔄 Recargar Datos
+                    </button>
+                    <button
+                      onClick={() => handleDescargarPDF("estudiante")}
+                      disabled={loading}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <FaDownload />
+                      {loading ? "Generando..." : "Descargar PDF"}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Gráfico de barras */}

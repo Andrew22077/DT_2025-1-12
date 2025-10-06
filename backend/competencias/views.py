@@ -1410,11 +1410,46 @@ def informes_detalle_profesor_materia(request, profesor_id, materia_id):
                 'fecha': evaluacion.fecha
             })
         
-        # Calcular promedios por estudiante
+        # Calcular promedios por estudiante y por GAC
         resultado = []
         for data in estudiantes_data.values():
             puntajes = [eval['puntaje'] for eval in data['evaluaciones']]
             promedio = sum(puntajes) / len(puntajes) if puntajes else 0
+            
+            # Calcular promedios por GAC
+            gacs_data = {}
+            for evaluacion_data in data['evaluaciones']:
+                # Obtener los GACs de esta evaluación
+                try:
+                    evaluacion_obj = Evaluacion.objects.get(
+                        profesor=profesor,
+                        estudiante_id=data['estudiante_id'],
+                        rac__numero=evaluacion_data['rac_numero'],
+                        fecha=evaluacion_data['fecha']
+                    )
+                    for gac in evaluacion_obj.rac.gacs.all():
+                        gac_key = f"GAC {gac.numero}"
+                        if gac_key not in gacs_data:
+                            gacs_data[gac_key] = {
+                                'gac': gac_key,
+                                'descripcion': gac.descripcion,
+                                'puntajes': []
+                            }
+                        gacs_data[gac_key]['puntajes'].append(evaluacion_data['puntaje'])
+                except Evaluacion.DoesNotExist:
+                    continue
+            
+            # Calcular promedios por GAC
+            gacs_promedio = []
+            for gac_data in gacs_data.values():
+                if gac_data['puntajes']:
+                    promedio_gac = sum(gac_data['puntajes']) / len(gac_data['puntajes'])
+                    gacs_promedio.append({
+                        'gac': gac_data['gac'],
+                        'descripcion': gac_data['descripcion'],
+                        'promedio': round(promedio_gac, 2),
+                        'total_evaluaciones': len(gac_data['puntajes'])
+                    })
             
             resultado.append({
                 'estudiante_id': data['estudiante_id'],
@@ -1422,7 +1457,8 @@ def informes_detalle_profesor_materia(request, profesor_id, materia_id):
                 'estudiante_grupo': data['estudiante_grupo'],
                 'promedio': round(promedio, 2),
                 'total_evaluaciones': len(data['evaluaciones']),
-                'evaluaciones': data['evaluaciones']
+                'evaluaciones': data['evaluaciones'],
+                'gacs': gacs_promedio
             })
         
         # Ordenar por promedio descendente
