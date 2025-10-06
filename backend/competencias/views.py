@@ -1141,7 +1141,7 @@ def informes_por_gac_semestre(request):
         segundo_semestre = ['2A', '2B', '2C']
         
         # Obtener evaluaciones agrupadas por GAC y semestre
-        evaluaciones = Evaluacion.objects.select_related('estudiante', 'rac').prefetch_related('rac__gacs').all()
+        evaluaciones = Evaluacion.objects.select_related('estudiante', 'rac').prefetch_related('rac__gacs', 'rac__materias').all()
         
         # Verificar si hay evaluaciones
         if not evaluaciones.exists():
@@ -1173,11 +1173,26 @@ def informes_por_gac_semestre(request):
                         gacs_data[gac_numero] = {
                             'gac_numero': gac_numero,
                             'gac_descripcion': gac.descripcion,
-                            'primer_semestre': {'puntajes': [], 'promedio': 0},
-                            'segundo_semestre': {'puntajes': [], 'promedio': 0}
+                            'primer_semestre': {'puntajes': [], 'promedio': 0, 'materias': {}},
+                            'segundo_semestre': {'puntajes': [], 'promedio': 0, 'materias': {}}
                         }
                     
                     gacs_data[gac_numero][f"{semestre.lower().replace(' ', '_')}"]['puntajes'].append(evaluacion.puntaje)
+                    
+                    # Procesar materias para este GAC
+                    for materia in evaluacion.rac.materias.all():
+                        materia_key = f"{materia.id}_{materia.nombre}"
+                        semestre_key = f"{semestre.lower().replace(' ', '_')}"
+                        
+                        if materia_key not in gacs_data[gac_numero][semestre_key]['materias']:
+                            gacs_data[gac_numero][semestre_key]['materias'][materia_key] = {
+                                'materia_id': materia.id,
+                                'materia_nombre': materia.nombre,
+                                'puntajes': []
+                            }
+                        
+                        gacs_data[gac_numero][semestre_key]['materias'][materia_key]['puntajes'].append(evaluacion.puntaje)
+                        
             except Exception as e:
                 print(f"Error procesando evaluación {evaluacion.id}: {e}")
                 continue
@@ -1185,23 +1200,50 @@ def informes_por_gac_semestre(request):
         # Calcular promedios
         resultado = []
         for gac_data in gacs_data.values():
-            # Primer semestre
-            if gac_data['primer_semestre']['puntajes']:
-                gac_data['primer_semestre']['promedio'] = sum(gac_data['primer_semestre']['puntajes']) / len(gac_data['primer_semestre']['puntajes'])
-                gac_data['primer_semestre']['total_evaluaciones'] = len(gac_data['primer_semestre']['puntajes'])
-            else:
-                gac_data['primer_semestre']['total_evaluaciones'] = 0
-            
-            # Segundo semestre
-            if gac_data['segundo_semestre']['puntajes']:
-                gac_data['segundo_semestre']['promedio'] = sum(gac_data['segundo_semestre']['puntajes']) / len(gac_data['segundo_semestre']['puntajes'])
-                gac_data['segundo_semestre']['total_evaluaciones'] = len(gac_data['segundo_semestre']['puntajes'])
-            else:
-                gac_data['segundo_semestre']['total_evaluaciones'] = 0
-            
-            # Limpiar datos
-            del gac_data['primer_semestre']['puntajes']
-            del gac_data['segundo_semestre']['puntajes']
+            # Procesar cada semestre
+            for semestre_key in ['primer_semestre', 'segundo_semestre']:
+                semestre_data = gac_data[semestre_key]
+                
+                # Calcular promedio general del GAC
+                if semestre_data['puntajes']:
+                    semestre_data['promedio'] = sum(semestre_data['puntajes']) / len(semestre_data['puntajes'])
+                    semestre_data['total_evaluaciones'] = len(semestre_data['puntajes'])
+                else:
+                    semestre_data['total_evaluaciones'] = 0
+                
+                # Calcular promedios por materia
+                materias_resultado = []
+                for materia_key, materia_data in semestre_data['materias'].items():
+                    if materia_data['puntajes']:
+                        materia_data['promedio'] = sum(materia_data['puntajes']) / len(materia_data['puntajes'])
+                        materia_data['total_evaluaciones'] = len(materia_data['puntajes'])
+                        
+                        # Determinar nivel de desarrollo
+                        if materia_data['promedio'] >= 4.0:
+                            desarrollo = "Excelente"
+                        elif materia_data['promedio'] >= 3.0:
+                            desarrollo = "Bueno"
+                        elif materia_data['promedio'] >= 2.0:
+                            desarrollo = "Regular"
+                        else:
+                            desarrollo = "Deficiente"
+                        
+                        materias_resultado.append({
+                            'materia_id': materia_data['materia_id'],
+                            'materia_nombre': materia_data['materia_nombre'],
+                            'promedio': round(materia_data['promedio'], 2),
+                            'total_evaluaciones': materia_data['total_evaluaciones'],
+                            'desarrollo': desarrollo
+                        })
+                    else:
+                        materia_data['total_evaluaciones'] = 0
+                
+                # Ordenar materias por promedio descendente
+                materias_resultado.sort(key=lambda x: x['promedio'], reverse=True)
+                semestre_data['materias'] = materias_resultado
+                
+                # Limpiar datos de puntajes
+                del semestre_data['puntajes']
             
             resultado.append(gac_data)
         
@@ -1779,18 +1821,63 @@ def descargar_pdf_resumen_general(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def descargar_pdf_por_gac(request):
-    """Descargar PDF del informe por GAC"""
+    """Descargar PDF del informe por GAC con colores y análisis por materia"""
     try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        from django.http import HttpResponse
+        from datetime import datetime
+        
+        # Crear buffer para el PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+        
+        # Estilos personalizados con colores
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.darkblue,
+            fontName='Helvetica-Bold'
+        )
+        
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12,
+            textColor=colors.darkgreen,
+            fontName='Helvetica-Bold'
+        )
+        
+        section_style = ParagraphStyle(
+            'CustomSection',
+            parent=styles['Heading3'],
+            fontSize=12,
+            spaceAfter=8,
+            textColor=colors.darkred,
+            fontName='Helvetica-Bold'
+        )
+        
         # Obtener datos del informe por GAC
         primer_semestre = ['Virtual 1', '1A', '1B', '1C']
         segundo_semestre = ['2A', '2B', '2C']
         
-        evaluaciones = Evaluacion.objects.select_related('estudiante', 'rac').prefetch_related('rac__gacs').all()
+        evaluaciones = Evaluacion.objects.select_related('estudiante', 'rac').prefetch_related('rac__gacs', 'rac__materias').all()
         
         if not evaluaciones.exists():
             return JsonResponse({'error': 'No hay evaluaciones disponibles'}, status=404)
         
-        # Procesar datos (mismo código que en informes_por_gac_semestre)
+        # Procesar datos con información de materias
         gacs_data = {}
         
         for evaluacion in evaluaciones:
@@ -1811,45 +1898,64 @@ def descargar_pdf_por_gac(request):
                         gacs_data[gac_numero] = {
                             'gac_numero': gac_numero,
                             'gac_descripcion': gac.descripcion,
-                            'primer_semestre': {'puntajes': [], 'promedio': 0},
-                            'segundo_semestre': {'puntajes': [], 'promedio': 0}
+                            'primer_semestre': {'puntajes': [], 'promedio': 0, 'materias': {}},
+                            'segundo_semestre': {'puntajes': [], 'promedio': 0, 'materias': {}}
                         }
                     
+                    # Agregar puntaje al semestre correspondiente
                     gacs_data[gac_numero][f"{semestre.lower().replace(' ', '_')}"]['puntajes'].append(evaluacion.puntaje)
+                    
+                    # Procesar materias para este GAC
+                    for materia in evaluacion.rac.materias.all():
+                        materia_key = f"{materia.id}_{materia.nombre}"
+                        semestre_key = f"{semestre.lower().replace(' ', '_')}"
+                        
+                        if materia_key not in gacs_data[gac_numero][semestre_key]['materias']:
+                            gacs_data[gac_numero][semestre_key]['materias'][materia_key] = {
+                                'materia_id': materia.id,
+                                'materia_nombre': materia.nombre,
+                                'puntajes': []
+                            }
+                        
+                        gacs_data[gac_numero][semestre_key]['materias'][materia_key]['puntajes'].append(evaluacion.puntaje)
+                        
             except Exception as e:
                 continue
         
-        # Calcular promedios
+        # Calcular promedios por GAC y por materia
         for gac_data in gacs_data.values():
-            if gac_data['primer_semestre']['puntajes']:
-                gac_data['primer_semestre']['promedio'] = sum(gac_data['primer_semestre']['puntajes']) / len(gac_data['primer_semestre']['puntajes'])
-                gac_data['primer_semestre']['total_evaluaciones'] = len(gac_data['primer_semestre']['puntajes'])
-            else:
-                gac_data['primer_semestre']['total_evaluaciones'] = 0
-            
-            if gac_data['segundo_semestre']['puntajes']:
-                gac_data['segundo_semestre']['promedio'] = sum(gac_data['segundo_semestre']['puntajes']) / len(gac_data['segundo_semestre']['puntajes'])
-                gac_data['segundo_semestre']['total_evaluaciones'] = len(gac_data['segundo_semestre']['puntajes'])
-            else:
-                gac_data['segundo_semestre']['total_evaluaciones'] = 0
+            for semestre_key in ['primer_semestre', 'segundo_semestre']:
+                semestre_data = gac_data[semestre_key]
+                
+                # Calcular promedio general del GAC
+                if semestre_data['puntajes']:
+                    semestre_data['promedio'] = sum(semestre_data['puntajes']) / len(semestre_data['puntajes'])
+                    semestre_data['total_evaluaciones'] = len(semestre_data['puntajes'])
+                else:
+                    semestre_data['total_evaluaciones'] = 0
+                
+                # Calcular promedios por materia
+                for materia_key, materia_data in semestre_data['materias'].items():
+                    if materia_data['puntajes']:
+                        materia_data['promedio'] = sum(materia_data['puntajes']) / len(materia_data['puntajes'])
+                        materia_data['total_evaluaciones'] = len(materia_data['puntajes'])
+                    else:
+                        materia_data['total_evaluaciones'] = 0
 
-        # Crear PDF
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        # Preparar datos para el PDF
         story = []
-        estilos = crear_estilos_pdf()
-
-        # Título
-        story.append(Paragraph("INFORME POR GAC", estilos['titulo']))
-        story.append(Paragraph(f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos['texto']))
+        
+        # Título principal
+        story.append(Paragraph("🎯 INFORME POR GAC Y MATERIAS", title_style))
+        story.append(Paragraph(f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
         story.append(Spacer(1, 20))
 
-        # Tabla de datos
-        story.append(Paragraph("PROMEDIOS DE GAC POR SEMESTRE", estilos['subtitulo']))
+        # Resumen general por GAC
+        story.append(Paragraph("📊 RESUMEN GENERAL POR GAC", subtitle_style))
         
-        gac_data_table = [['GAC', 'Descripción', '1er Semestre', 'Evaluaciones 1er', '2do Semestre', 'Evaluaciones 2do']]
+        resumen_table = [['GAC', 'Descripción', '1er Semestre', 'Evaluaciones 1er', '2do Semestre', 'Evaluaciones 2do']]
         for gac_data in sorted(gacs_data.values(), key=lambda x: x['gac_numero']):
-            gac_data_table.append([
+            resumen_table.append([
                 f"GAC {gac_data['gac_numero']}",
                 gac_data['gac_descripcion'][:30] + "..." if len(gac_data['gac_descripcion']) > 30 else gac_data['gac_descripcion'],
                 f"{gac_data['primer_semestre']['promedio']:.2f}",
@@ -1858,7 +1964,153 @@ def descargar_pdf_por_gac(request):
                 str(gac_data['segundo_semestre']['total_evaluaciones'])
             ])
         
-        story.append(crear_tabla_pdf(gac_data_table, None))
+        # Crear tabla resumen con colores
+        resumen_table_obj = Table(resumen_table, colWidths=[1*inch, 2*inch, 1*inch, 1*inch, 1*inch, 1*inch])
+        resumen_table_obj.setStyle(TableStyle([
+            # Header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            # Filas de datos
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            # Colores específicos
+            ('BACKGROUND', (2, 1), (2, -1), colors.lightblue),  # 1er semestre
+            ('BACKGROUND', (4, 1), (4, -1), colors.lightgreen),  # 2do semestre
+        ]))
+        
+        story.append(resumen_table_obj)
+        story.append(Spacer(1, 20))
+
+        # Detalles por GAC con análisis de materias
+        story.append(Paragraph("🔍 ANÁLISIS DETALLADO POR GAC Y MATERIA", subtitle_style))
+        
+        for gac_data in sorted(gacs_data.values(), key=lambda x: x['gac_numero']):
+            # Información del GAC
+            story.append(Paragraph(f"<b>🎯 GAC {gac_data['gac_numero']}:</b> {gac_data['gac_descripcion']}", section_style))
+            
+            # Primer Semestre
+            if gac_data['primer_semestre']['total_evaluaciones'] > 0:
+                story.append(Paragraph(f"<b>📚 PRIMER SEMESTRE - Promedio General: {gac_data['primer_semestre']['promedio']:.2f}</b>", styles['Heading4']))
+                
+                # Tabla de materias - Primer Semestre
+                if gac_data['primer_semestre']['materias']:
+                    materias_table = [['Materia', 'Promedio', 'Evaluaciones', 'Desarrollo']]
+                    
+                    # Ordenar materias por promedio descendente
+                    materias_ordenadas = sorted(
+                        gac_data['primer_semestre']['materias'].values(),
+                        key=lambda x: x['promedio'],
+                        reverse=True
+                    )
+                    
+                    for i, materia in enumerate(materias_ordenadas):
+                        if materia['total_evaluaciones'] > 0:
+                            # Determinar nivel de desarrollo
+                            if materia['promedio'] >= 4.0:
+                                desarrollo = "Excelente"
+                                color_fondo = colors.lightgreen
+                            elif materia['promedio'] >= 3.0:
+                                desarrollo = "Bueno"
+                                color_fondo = colors.lightyellow
+                            elif materia['promedio'] >= 2.0:
+                                desarrollo = "Regular"
+                                color_fondo = colors.lightcoral
+                            else:
+                                desarrollo = "Deficiente"
+                                color_fondo = colors.lightcoral
+                            
+                            materias_table.append([
+                                materia['materia_nombre'][:25] + "..." if len(materia['materia_nombre']) > 25 else materia['materia_nombre'],
+                                f"{materia['promedio']:.2f}",
+                                str(materia['total_evaluaciones']),
+                                desarrollo
+                            ])
+                    
+                    if len(materias_table) > 1:  # Si hay datos además del header
+                        materias_table_obj = Table(materias_table, colWidths=[2*inch, 1*inch, 1*inch, 1*inch])
+                        materias_table_obj.setStyle(TableStyle([
+                            # Header
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('FONTSIZE', (0, 0), (-1, 0), 9),
+                            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                            # Filas de datos
+                            ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
+                            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                            ('FONTSIZE', (0, 1), (-1, -1), 8),
+                        ]))
+                        
+                        story.append(materias_table_obj)
+                        story.append(Spacer(1, 10))
+            
+            # Segundo Semestre
+            if gac_data['segundo_semestre']['total_evaluaciones'] > 0:
+                story.append(Paragraph(f"<b>📚 SEGUNDO SEMESTRE - Promedio General: {gac_data['segundo_semestre']['promedio']:.2f}</b>", styles['Heading4']))
+                
+                # Tabla de materias - Segundo Semestre
+                if gac_data['segundo_semestre']['materias']:
+                    materias_table = [['Materia', 'Promedio', 'Evaluaciones', 'Desarrollo']]
+                    
+                    # Ordenar materias por promedio descendente
+                    materias_ordenadas = sorted(
+                        gac_data['segundo_semestre']['materias'].values(),
+                        key=lambda x: x['promedio'],
+                        reverse=True
+                    )
+                    
+                    for i, materia in enumerate(materias_ordenadas):
+                        if materia['total_evaluaciones'] > 0:
+                            # Determinar nivel de desarrollo
+                            if materia['promedio'] >= 4.0:
+                                desarrollo = "Excelente"
+                                color_fondo = colors.lightgreen
+                            elif materia['promedio'] >= 3.0:
+                                desarrollo = "Bueno"
+                                color_fondo = colors.lightyellow
+                            elif materia['promedio'] >= 2.0:
+                                desarrollo = "Regular"
+                                color_fondo = colors.lightcoral
+                            else:
+                                desarrollo = "Deficiente"
+                                color_fondo = colors.lightcoral
+                            
+                            materias_table.append([
+                                materia['materia_nombre'][:25] + "..." if len(materia['materia_nombre']) > 25 else materia['materia_nombre'],
+                                f"{materia['promedio']:.2f}",
+                                str(materia['total_evaluaciones']),
+                                desarrollo
+                            ])
+                    
+                    if len(materias_table) > 1:  # Si hay datos además del header
+                        materias_table_obj = Table(materias_table, colWidths=[2*inch, 1*inch, 1*inch, 1*inch])
+                        materias_table_obj.setStyle(TableStyle([
+                            # Header
+                            ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+                            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                            ('FONTSIZE', (0, 0), (-1, 0), 9),
+                            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                            # Filas de datos
+                            ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
+                            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                            ('FONTSIZE', (0, 1), (-1, -1), 8),
+                        ]))
+                        
+                        story.append(materias_table_obj)
+                        story.append(Spacer(1, 10))
+            
+            story.append(Spacer(1, 15))
+            
+            # Salto de página cada 2 GACs
+            if (list(gacs_data.keys()).index(gac_data['gac_numero']) + 1) % 2 == 0:
+                story.append(PageBreak())
 
         # Construir PDF
         doc.build(story)
@@ -1866,7 +2118,7 @@ def descargar_pdf_por_gac(request):
 
         # Crear respuesta HTTP
         response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="informe_por_gac_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="informe_gac_detallado_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
         return response
 
     except Exception as e:

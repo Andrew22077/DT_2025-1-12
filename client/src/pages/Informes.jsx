@@ -771,51 +771,117 @@ const Informes = () => {
 
                       <div className="space-y-3">
                         {/* Primer Semestre */}
-                        <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                          <div>
-                            <span className="text-sm font-medium text-blue-800">
-                              Primer Semestre
-                            </span>
-                            <p className="text-xs text-blue-600">
-                              Virtual 1, 1A, 1B, 1C
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <div
-                              className={`text-xl font-bold ${getColorByPuntaje(
-                                gac.primer_semestre.promedio
-                              )}`}
-                            >
-                              {gac.primer_semestre.promedio.toFixed(2)}
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <div className="flex justify-between items-center mb-2">
+                            <div>
+                              <span className="text-sm font-medium text-blue-800">
+                                Primer Semestre
+                              </span>
+                              <p className="text-xs text-blue-600">
+                                Virtual 1, 1A, 1B, 1C
+                              </p>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {gac.primer_semestre.total_evaluaciones}{" "}
-                              evaluaciones
+                            <div className="text-right">
+                              <div
+                                className={`text-xl font-bold ${getColorByPuntaje(
+                                  gac.primer_semestre.promedio
+                                )}`}
+                              >
+                                {gac.primer_semestre.promedio.toFixed(2)}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {gac.primer_semestre.total_evaluaciones}{" "}
+                                evaluaciones
+                              </div>
                             </div>
                           </div>
+                          
+                          {/* Materias del primer semestre */}
+                          {gac.primer_semestre.materias && gac.primer_semestre.materias.length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-xs font-medium text-blue-700 mb-2">
+                                📚 Materias donde se desarrolla más:
+                              </p>
+                              <div className="space-y-1">
+                                {gac.primer_semestre.materias.slice(0, 3).map((materia, index) => (
+                                  <div key={index} className="flex justify-between items-center text-xs">
+                                    <span className="text-blue-600 truncate">
+                                      {materia.materia_nombre}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className={`font-bold ${getColorByPuntaje(materia.promedio)}`}>
+                                        {materia.promedio}
+                                      </span>
+                                      <span className={`px-1 py-0.5 rounded text-xs ${
+                                        materia.desarrollo === 'Excelente' ? 'bg-green-100 text-green-800' :
+                                        materia.desarrollo === 'Bueno' ? 'bg-yellow-100 text-yellow-800' :
+                                        materia.desarrollo === 'Regular' ? 'bg-orange-100 text-orange-800' :
+                                        'bg-red-100 text-red-800'
+                                      }`}>
+                                        {materia.desarrollo}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Segundo Semestre */}
-                        <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-                          <div>
-                            <span className="text-sm font-medium text-green-800">
-                              Segundo Semestre
-                            </span>
-                            <p className="text-xs text-green-600">2A, 2B, 2C</p>
-                          </div>
-                          <div className="text-right">
-                            <div
-                              className={`text-xl font-bold ${getColorByPuntaje(
-                                gac.segundo_semestre.promedio
-                              )}`}
-                            >
-                              {gac.segundo_semestre.promedio.toFixed(2)}
+                        <div className="p-3 bg-green-50 rounded-lg">
+                          <div className="flex justify-between items-center mb-2">
+                            <div>
+                              <span className="text-sm font-medium text-green-800">
+                                Segundo Semestre
+                              </span>
+                              <p className="text-xs text-green-600">2A, 2B, 2C</p>
                             </div>
-                            <div className="text-xs text-gray-500">
-                              {gac.segundo_semestre.total_evaluaciones}{" "}
-                              evaluaciones
+                            <div className="text-right">
+                              <div
+                                className={`text-xl font-bold ${getColorByPuntaje(
+                                  gac.segundo_semestre.promedio
+                                )}`}
+                              >
+                                {gac.segundo_semestre.promedio.toFixed(2)}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {gac.segundo_semestre.total_evaluaciones}{" "}
+                                evaluaciones
+                              </div>
                             </div>
                           </div>
+                          
+                          {/* Materias del segundo semestre */}
+                          {gac.segundo_semestre.materias && gac.segundo_semestre.materias.length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-xs font-medium text-green-700 mb-2">
+                                📚 Materias donde se desarrolla más:
+                              </p>
+                              <div className="space-y-1">
+                                {gac.segundo_semestre.materias.slice(0, 3).map((materia, index) => (
+                                  <div key={index} className="flex justify-between items-center text-xs">
+                                    <span className="text-green-600 truncate">
+                                      {materia.materia_nombre}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span className={`font-bold ${getColorByPuntaje(materia.promedio)}`}>
+                                        {materia.promedio}
+                                      </span>
+                                      <span className={`px-1 py-0.5 rounded text-xs ${
+                                        materia.desarrollo === 'Excelente' ? 'bg-green-100 text-green-800' :
+                                        materia.desarrollo === 'Bueno' ? 'bg-yellow-100 text-yellow-800' :
+                                        materia.desarrollo === 'Regular' ? 'bg-orange-100 text-orange-800' :
+                                        'bg-red-100 text-red-800'
+                                      }`}>
+                                        {materia.desarrollo}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
