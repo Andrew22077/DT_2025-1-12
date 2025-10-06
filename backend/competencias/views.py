@@ -748,6 +748,301 @@ def debug_clasificacion_semestres(request, estudiante_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def descargar_pdf_estudiantes_por_semestre(request):
+    """Generar PDF de estudiantes con resultados por semestre y por GAC"""
+    try:
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        from django.http import HttpResponse
+        from datetime import datetime
+        
+        # Crear buffer para el PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+        
+        # Estilos
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.darkblue
+        )
+        
+        heading_style = ParagraphStyle(
+            'CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12,
+            textColor=colors.darkblue
+        )
+        
+        # Obtener todos los estudiantes
+        estudiantes = Estudiante.objects.all().order_by('grupo', 'nombre')
+        
+        # Preparar datos para el PDF
+        story = []
+        
+        # Título principal
+        story.append(Paragraph("INFORME DE ESTUDIANTES POR SEMESTRE Y GAC", title_style))
+        story.append(Paragraph(f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
+        story.append(Spacer(1, 20))
+        
+        # Procesar cada estudiante
+        for estudiante in estudiantes:
+            # Información del estudiante
+            story.append(Paragraph(f"<b>ESTUDIANTE:</b> {estudiante.nombre}", heading_style))
+            story.append(Paragraph(f"<b>GRUPO:</b> {estudiante.grupo} | <b>DOCUMENTO:</b> {estudiante.documento}", styles['Normal']))
+            
+            # Determinar si es segundo semestre
+            es_segundo_semestre = estudiante.grupo in ['2A', '2B', '2C']
+            
+            if es_segundo_semestre:
+                # Obtener resultados por semestre
+                try:
+                    resultados = obtener_resultados_estudiante_por_semestre_interno(estudiante.id)
+                    
+                    # Primer Semestre
+                    if resultados['primer_semestre']['resumen_general']['total_evaluaciones'] > 0:
+                        story.append(Paragraph("<b>PRIMER SEMESTRE</b>", styles['Heading3']))
+                        story.append(Paragraph(f"Promedio General: {resultados['primer_semestre']['resumen_general']['promedio_general']:.2f}", styles['Normal']))
+                        story.append(Paragraph(f"Total Evaluaciones: {resultados['primer_semestre']['resumen_general']['total_evaluaciones']}", styles['Normal']))
+                        
+                        # Tabla de GACs - Primer Semestre
+                        if resultados['primer_semestre']['grafico_gacs']:
+                            gac_data = [['GAC', 'Promedio', 'Estado']]
+                            for gac in resultados['primer_semestre']['grafico_gacs']:
+                                estado = "Excelente" if gac['promedio'] >= 4.5 else "Bueno" if gac['promedio'] >= 3.5 else "Regular" if gac['promedio'] >= 2.5 else "Deficiente"
+                                gac_data.append([gac['gac'], f"{gac['promedio']:.2f}", estado])
+                            
+                            gac_table = Table(gac_data, colWidths=[1.5*inch, 1*inch, 1.5*inch])
+                            gac_table.setStyle(TableStyle([
+                                ('BACKGROUND', (0, 0), (-1, 0), colors.blue),
+                                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                            ]))
+                            story.append(gac_table)
+                            story.append(Spacer(1, 12))
+                    
+                    # Segundo Semestre
+                    if resultados['segundo_semestre']['resumen_general']['total_evaluaciones'] > 0:
+                        story.append(Paragraph("<b>SEGUNDO SEMESTRE</b>", styles['Heading3']))
+                        story.append(Paragraph(f"Promedio General: {resultados['segundo_semestre']['resumen_general']['promedio_general']:.2f}", styles['Normal']))
+                        story.append(Paragraph(f"Total Evaluaciones: {resultados['segundo_semestre']['resumen_general']['total_evaluaciones']}", styles['Normal']))
+                        
+                        # Tabla de GACs - Segundo Semestre
+                        if resultados['segundo_semestre']['grafico_gacs']:
+                            gac_data = [['GAC', 'Promedio', 'Estado']]
+                            for gac in resultados['segundo_semestre']['grafico_gacs']:
+                                estado = "Excelente" if gac['promedio'] >= 4.5 else "Bueno" if gac['promedio'] >= 3.5 else "Regular" if gac['promedio'] >= 2.5 else "Deficiente"
+                                gac_data.append([gac['gac'], f"{gac['promedio']:.2f}", estado])
+                            
+                            gac_table = Table(gac_data, colWidths=[1.5*inch, 1*inch, 1.5*inch])
+                            gac_table.setStyle(TableStyle([
+                                ('BACKGROUND', (0, 0), (-1, 0), colors.green),
+                                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                                ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
+                                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                            ]))
+                            story.append(gac_table)
+                            story.append(Spacer(1, 12))
+                    
+                except Exception as e:
+                    story.append(Paragraph(f"Error al obtener resultados: {str(e)}", styles['Normal']))
+            else:
+                # Para estudiantes de primer semestre, obtener resultados normales
+                try:
+                    evaluaciones = Evaluacion.objects.filter(estudiante=estudiante)
+                    if evaluaciones.exists():
+                        promedio_general = evaluaciones.aggregate(promedio=Avg("puntaje"))["promedio"] or 0
+                        total_evaluaciones = evaluaciones.count()
+                        
+                        story.append(Paragraph("<b>PRIMER SEMESTRE</b>", styles['Heading3']))
+                        story.append(Paragraph(f"Promedio General: {promedio_general:.2f}", styles['Normal']))
+                        story.append(Paragraph(f"Total Evaluaciones: {total_evaluaciones}", styles['Normal']))
+                        
+                        # Obtener GACs
+                        gacs_data = {}
+                        for evaluacion in evaluaciones:
+                            for gac in evaluacion.rac.gacs.all():
+                                gac_key = f"GAC {gac.numero}"
+                                if gac_key not in gacs_data:
+                                    gacs_data[gac_key] = []
+                                gacs_data[gac_key].append(evaluacion.puntaje)
+                        
+                        if gacs_data:
+                            gac_data = [['GAC', 'Promedio', 'Estado']]
+                            for gac_key, puntajes in gacs_data.items():
+                                promedio = sum(puntajes) / len(puntajes)
+                                estado = "Excelente" if promedio >= 4.5 else "Bueno" if promedio >= 3.5 else "Regular" if promedio >= 2.5 else "Deficiente"
+                                gac_data.append([gac_key, f"{promedio:.2f}", estado])
+                            
+                            gac_table = Table(gac_data, colWidths=[1.5*inch, 1*inch, 1.5*inch])
+                            gac_table.setStyle(TableStyle([
+                                ('BACKGROUND', (0, 0), (-1, 0), colors.blue),
+                                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+                                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+                            ]))
+                            story.append(gac_table)
+                            story.append(Spacer(1, 12))
+                    else:
+                        story.append(Paragraph("No hay evaluaciones registradas", styles['Normal']))
+                        
+                except Exception as e:
+                    story.append(Paragraph(f"Error al obtener resultados: {str(e)}", styles['Normal']))
+            
+            story.append(PageBreak())
+        
+        # Construir PDF
+        doc.build(story)
+        
+        # Obtener el contenido del buffer
+        buffer.seek(0)
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="informe_estudiantes_por_semestre_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        
+        return response
+        
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+def obtener_resultados_estudiante_por_semestre_interno(estudiante_id):
+    """Función interna para obtener resultados por semestre (sin decoradores)"""
+    estudiante = Estudiante.objects.get(pk=estudiante_id)
+    
+    # Definir grupos por semestre
+    primer_semestre = ['Virtual 1', '1A', '1B', '1C']
+    segundo_semestre = ['2A', '2B', '2C']
+    
+    # Determinar el semestre actual del estudiante
+    grupo_actual = estudiante.grupo
+    es_segundo_semestre = grupo_actual in segundo_semestre
+    
+    # Obtener todas las evaluaciones del estudiante
+    evaluaciones = Evaluacion.objects.filter(estudiante=estudiante)
+    
+    # Separar evaluaciones por semestre basándose en fechas
+    evaluaciones_primer_semestre = []
+    evaluaciones_segundo_semestre = []
+    
+    for evaluacion in evaluaciones:
+        # Usar la función para determinar el semestre
+        semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
+        
+        if semestre == 'primer_semestre':
+            evaluaciones_primer_semestre.append(evaluacion)
+        else:  # segundo_semestre
+            evaluaciones_segundo_semestre.append(evaluacion)
+    
+    def procesar_evaluaciones_interno(evaluaciones_list, semestre_nombre):
+        if not evaluaciones_list:
+            return {
+                "semestre": semestre_nombre,
+                "resumen_general": {
+                    "promedio_general": 0,
+                    "total_evaluaciones": 0,
+                    "total_gacs_evaluados": 0,
+                    "total_racs_evaluados": 0,
+                },
+                "grafico_profesores": [],
+                "grafico_gacs": [],
+                "evaluaciones": [],
+            }
+        
+        # Promedio general
+        promedio_general = sum(e.puntaje for e in evaluaciones_list) / len(evaluaciones_list)
+        
+        # Totales
+        total_evaluaciones = len(set(e.profesor.id for e in evaluaciones_list))
+        total_gacs = len(set(gac.id for e in evaluaciones_list for gac in e.rac.gacs.all()))
+        total_racs = len(set(e.rac.id for e in evaluaciones_list))
+        
+        # === Gráfico: promedio por GAC ===
+        gacs_data = {}
+        for e in evaluaciones_list:
+            for gac in e.rac.gacs.all():
+                gac_key = f"GAC {gac.numero}"
+                if gac_key not in gacs_data:
+                    gacs_data[gac_key] = {
+                        "gac": gac_key,
+                        "descripcion": gac.descripcion,
+                        "puntajes": []
+                    }
+                gacs_data[gac_key]["puntajes"].append(e.puntaje)
+        
+        grafico_gacs = [
+            {
+                "gac": data["gac"],
+                "descripcion": data["descripcion"],
+                "promedio": round(sum(data["puntajes"]) / len(data["puntajes"]), 2)
+            }
+            for data in gacs_data.values()
+        ]
+        
+        return {
+            "semestre": semestre_nombre,
+            "resumen_general": {
+                "promedio_general": round(promedio_general, 2),
+                "total_evaluaciones": total_evaluaciones,
+                "total_gacs_evaluados": total_gacs,
+                "total_racs_evaluados": total_racs,
+            },
+            "grafico_gacs": grafico_gacs,
+        }
+    
+    # Procesar datos para cada semestre
+    datos_primer_semestre = procesar_evaluaciones_interno(evaluaciones_primer_semestre, "Primer Semestre")
+    datos_segundo_semestre = procesar_evaluaciones_interno(evaluaciones_segundo_semestre, "Segundo Semestre")
+    
+    # Si el estudiante está en segundo semestre, también buscar datos de primer semestre
+    if es_segundo_semestre:
+        try:
+            estudiante_primer_semestre = Estudiante.objects.filter(
+                documento=estudiante.documento,
+                grupo__in=primer_semestre
+            ).first()
+            
+            if estudiante_primer_semestre:
+                evaluaciones_primer_semestre = Evaluacion.objects.filter(
+                    estudiante=estudiante_primer_semestre
+                )
+                datos_primer_semestre = procesar_evaluaciones_interno(
+                    list(evaluaciones_primer_semestre), 
+                    "Primer Semestre"
+                )
+        except Exception as e:
+            print(f"Error buscando estudiante de primer semestre: {e}")
+    
+    return {
+        "primer_semestre": datos_primer_semestre,
+        "segundo_semestre": datos_segundo_semestre,
+    }
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def resultados_globales(request):
     try:
         # Todas las evaluaciones

@@ -38,6 +38,7 @@ urlpatterns = [
     path('api/pdf/por-gac/', views.descargar_pdf_por_gac, name='descargar_pdf_por_gac'),
     path('api/pdf/por-profesor/', views.descargar_pdf_por_profesor, name='descargar_pdf_por_profesor'),
     path('api/pdf/por-estudiante/', views.descargar_pdf_por_estudiante, name='descargar_pdf_por_estudiante'),
+    path('api/pdf/estudiantes-por-semestre/', views.descargar_pdf_estudiantes_por_semestre, name='descargar_pdf_estudiantes_por_semestre'),
 
     # Router URLs después (más generales)
     path('api/', include(router.urls)),

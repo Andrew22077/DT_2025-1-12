@@ -493,6 +493,35 @@ export const useEvaluacionApi = () => {
     }
   };
 
+  const descargarPDFEstudiantesPorSemestre = async () => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/pdf/estudiantes-por-semestre/`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Error al descargar PDF de estudiantes por semestre");
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `informe_estudiantes_por_semestre_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error("Error en descargarPDFEstudiantesPorSemestre:", error);
+      throw error;
+    }
+  };
+
   return {
     obtenerEstudiantes,
     obtenerRACs,
@@ -515,5 +544,6 @@ export const useEvaluacionApi = () => {
     descargarPDFPorGAC,
     descargarPDFPorProfesor,
     descargarPDFPorEstudiante,
+    descargarPDFEstudiantesPorSemestre,
   };
 };

@@ -42,9 +42,8 @@ const Informes = () => {
   const [mostrarDetalle, setMostrarDetalle] = useState(false);
   
   // Estados para funcionalidad de semestres en estudiantes
-  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
-  const [resultadosEstudianteSemestre, setResultadosEstudianteSemestre] = useState(null);
-  const [mostrarResultadosEstudiante, setMostrarResultadosEstudiante] = useState(false);
+  const [resultadosPorEstudiante, setResultadosPorEstudiante] = useState({});
+  const [cargandoResultados, setCargandoResultados] = useState({});
 
   useEffect(() => {
     cargarResultados();
@@ -79,6 +78,8 @@ const Informes = () => {
           const datosEstudiante =
             await evaluacionApi.obtenerInformesEstudianteProfesores();
           setEstudiantesProfesores(datosEstudiante);
+          // Cargar resultados detallados de todos los estudiantes
+          setTimeout(() => cargarResultadosTodosEstudiantes(), 100);
           break;
         default:
           break;
@@ -114,30 +115,33 @@ const Informes = () => {
 
   // Función para cargar resultados detallados de un estudiante
   const cargarResultadosEstudiante = async (estudiante) => {
+    const estudianteId = estudiante.estudiante_id;
+    
+    // Si ya tenemos los resultados, no cargar de nuevo
+    if (resultadosPorEstudiante[estudianteId]) {
+      return;
+    }
+
     try {
-      setLoading(true);
-      setEstudianteSeleccionado(estudiante);
+      setCargandoResultados(prev => ({ ...prev, [estudianteId]: true }));
+      
+      let resultados;
       
       // Si el estudiante pertenece a segundo semestre, usar la API por semestre
       if (esSegundoSemestre(estudiante.estudiante_grupo)) {
-        const resultados = await evaluacionApi.obtenerResultadosEstudiantePorSemestre(
-          estudiante.estudiante_id
-        );
-        setResultadosEstudianteSemestre(resultados);
+        resultados = await evaluacionApi.obtenerResultadosEstudiantePorSemestre(estudianteId);
       } else {
         // Para estudiantes de primer semestre, usar la API normal
-        const resultados = await evaluacionApi.obtenerResultadosEstudiante(
-          estudiante.estudiante_id
-        );
-        setResultadosEstudianteSemestre({
+        const resultadosNormales = await evaluacionApi.obtenerResultadosEstudiante(estudianteId);
+        resultados = {
           estudiante: {
-            id: estudiante.estudiante_id,
+            id: estudianteId,
             nombre: estudiante.estudiante_nombre,
             grupo: estudiante.estudiante_grupo,
             documento: estudiante.documento || 'N/A',
             es_segundo_semestre: false
           },
-          primer_semestre: resultados,
+          primer_semestre: resultadosNormales,
           segundo_semestre: {
             semestre: "Segundo Semestre",
             resumen_general: {
@@ -150,15 +154,32 @@ const Informes = () => {
             grafico_gacs: [],
             evaluaciones: [],
           }
-        });
+        };
       }
       
-      setMostrarResultadosEstudiante(true);
+      setResultadosPorEstudiante(prev => ({
+        ...prev,
+        [estudianteId]: resultados
+      }));
+      
     } catch (error) {
-      toast.error("Error al cargar resultados del estudiante: " + (error.message || error));
+      console.error(`Error al cargar resultados del estudiante ${estudianteId}:`, error);
+      // No mostrar toast para evitar spam, solo log del error
     } finally {
-      setLoading(false);
+      setCargandoResultados(prev => ({ ...prev, [estudianteId]: false }));
     }
+  };
+
+  // Función para cargar resultados de todos los estudiantes
+  const cargarResultadosTodosEstudiantes = async () => {
+    if (!estudiantesProfesores?.estudiantes_profesores) return;
+    
+    // Cargar resultados de todos los estudiantes en paralelo
+    const promesas = estudiantesProfesores.estudiantes_profesores.map(estudiante => 
+      cargarResultadosEstudiante(estudiante)
+    );
+    
+    await Promise.allSettled(promesas);
   };
 
   // Funciones para descargar PDFs
@@ -179,8 +200,8 @@ const Informes = () => {
           toast.success("PDF por profesor descargado exitosamente");
           break;
         case "estudiante":
-          await evaluacionApi.descargarPDFPorEstudiante();
-          toast.success("PDF por estudiante descargado exitosamente");
+          await evaluacionApi.descargarPDFEstudiantesPorSemestre();
+          toast.success("PDF de estudiantes por semestre descargado exitosamente");
           break;
         default:
           break;
@@ -197,6 +218,92 @@ const Informes = () => {
     if (promedio >= 3.0) return "text-blue-600";
     if (promedio >= 2.0) return "text-yellow-600";
     return "text-red-600";
+  };
+
+  // Función para renderizar resultados por semestre en la tabla
+  const renderResultadosSemestreTabla = (estudiante) => {
+    const estudianteId = estudiante.estudiante_id;
+    const resultados = resultadosPorEstudiante[estudianteId];
+    const cargando = cargandoResultados[estudianteId];
+
+    if (cargando) {
+      return (
+        <div className="flex items-center justify-center py-2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+          <span className="ml-2 text-sm text-gray-500">Cargando...</span>
+        </div>
+      );
+    }
+
+    if (!resultados) {
+      return (
+        <div className="text-sm text-gray-400">
+          Sin datos
+        </div>
+      );
+    }
+
+    const esSegundoSem = resultados.estudiante?.es_segundo_semestre || false;
+    const primerSem = resultados.primer_semestre;
+    const segundoSem = resultados.segundo_semestre;
+
+    return (
+      <div className="space-y-2">
+        {/* Primer Semestre */}
+        <div className="bg-blue-50 rounded-lg p-3">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs font-medium text-blue-800">1er Semestre</span>
+            <span className={`text-sm font-bold ${getColorByPuntaje(primerSem?.resumen_general?.promedio_general || 0)}`}>
+              {primerSem?.resumen_general?.promedio_general?.toFixed(2) || "0.00"}
+            </span>
+          </div>
+          <div className="text-xs text-blue-600">
+            {primerSem?.resumen_general?.total_evaluaciones || 0} evaluaciones
+          </div>
+          {/* GACs del primer semestre */}
+          {primerSem?.grafico_gacs && primerSem.grafico_gacs.length > 0 && (
+            <div className="mt-2">
+              <div className="text-xs text-blue-700 font-medium mb-1">GACs:</div>
+              <div className="flex flex-wrap gap-1">
+                {primerSem.grafico_gacs.slice(0, 3).map((gac, index) => (
+                  <span key={index} className="text-xs bg-blue-200 text-blue-800 px-1 py-0.5 rounded">
+                    {gac.gac}: {gac.promedio?.toFixed(1)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Segundo Semestre - solo si es estudiante de segundo semestre */}
+        {esSegundoSem && (
+          <div className="bg-green-50 rounded-lg p-3">
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs font-medium text-green-800">2do Semestre</span>
+              <span className={`text-sm font-bold ${getColorByPuntaje(segundoSem?.resumen_general?.promedio_general || 0)}`}>
+                {segundoSem?.resumen_general?.promedio_general?.toFixed(2) || "0.00"}
+              </span>
+            </div>
+            <div className="text-xs text-green-600">
+              {segundoSem?.resumen_general?.total_evaluaciones || 0} evaluaciones
+            </div>
+            {/* GACs del segundo semestre */}
+            {segundoSem?.grafico_gacs && segundoSem.grafico_gacs.length > 0 && (
+              <div className="mt-2">
+                <div className="text-xs text-green-700 font-medium mb-1">GACs:</div>
+                <div className="flex flex-wrap gap-1">
+                  {segundoSem.grafico_gacs.slice(0, 3).map((gac, index) => (
+                    <span key={index} className="text-xs bg-green-200 text-green-800 px-1 py-0.5 rounded">
+                      {gac.gac}: {gac.promedio?.toFixed(1)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
   };
 
   // Función para renderizar los resultados de un semestre específico
@@ -893,7 +1000,7 @@ const Informes = () => {
                             Profesores Evaluadores
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Acciones
+                            Resultados por Semestre
                           </th>
                         </tr>
                       </thead>
@@ -937,21 +1044,8 @@ const Informes = () => {
                                   )}
                                 </div>
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <div className="flex flex-col gap-2">
-                                  <button
-                                    onClick={() => cargarResultadosEstudiante(estudiante)}
-                                    className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
-                                  >
-                                    <FaEye className="w-4 h-4" />
-                                    Ver Detalles
-                                  </button>
-                                  {esSegundoSemestre(estudiante.estudiante_grupo) && (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                      📚 2do Semestre
-                                    </span>
-                                  )}
-                                </div>
+                              <td className="px-6 py-4">
+                                {renderResultadosSemestreTabla(estudiante)}
                               </td>
                             </tr>
                           )
@@ -1034,196 +1128,6 @@ const Informes = () => {
           </div>
         )}
 
-        {/* Modal de resultados detallados del estudiante */}
-        {mostrarResultadosEstudiante && resultadosEstudianteSemestre && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-7xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h3 className="text-2xl font-semibold text-gray-800">
-                    {resultadosEstudianteSemestre.estudiante.nombre}
-                  </h3>
-                  <p className="text-gray-600">
-                    Grupo: {resultadosEstudianteSemestre.estudiante.grupo} | Documento: {resultadosEstudianteSemestre.estudiante.documento}
-                  </p>
-                  {resultadosEstudianteSemestre.estudiante.es_segundo_semestre && (
-                    <p className="text-sm text-blue-600 mt-1">
-                      📚 Estudiante de segundo semestre - Mostrando resultados de ambos semestres
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={() => {
-                    setMostrarResultadosEstudiante(false);
-                    setResultadosEstudianteSemestre(null);
-                    setEstudianteSeleccionado(null);
-                  }}
-                  className="text-gray-500 hover:text-gray-700 text-2xl"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="space-y-6">
-                {/* Mostrar resultados por semestre si aplica */}
-                {resultadosEstudianteSemestre.estudiante.es_segundo_semestre ? (
-                  <div className="space-y-6">
-                    {/* Resultados de Primer Semestre */}
-                    {renderResultadosSemestre(
-                      resultadosEstudianteSemestre.primer_semestre,
-                      "Primer Semestre"
-                    )}
-
-                    {/* Resultados de Segundo Semestre */}
-                    {renderResultadosSemestre(
-                      resultadosEstudianteSemestre.segundo_semestre,
-                      "Segundo Semestre"
-                    )}
-                  </div>
-                ) : (
-                  /* Mostrar resultados normales para estudiantes de primer semestre */
-                  <div className="space-y-6">
-                    {/* Información y resumen general */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h4 className="text-xl font-semibold text-gray-800">
-                            Resumen General
-                          </h4>
-                        </div>
-                        <div className="text-right">
-                          <div
-                            className={`text-3xl font-bold px-4 py-2 rounded-lg ${getColorByPuntaje(
-                              resultadosEstudianteSemestre.primer_semestre.resumen_general.promedio_general || 0
-                            )}`}
-                          >
-                            {resultadosEstudianteSemestre.primer_semestre.resumen_general.promedio_general?.toFixed(2) || "0.00"}
-                          </div>
-                          <p className="text-sm text-gray-600 mt-1">Promedio General</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-blue-50 rounded-lg p-4 text-center">
-                          <div className="text-2xl font-bold text-blue-600">
-                            {resultadosEstudianteSemestre.primer_semestre.resumen_general.total_evaluaciones}
-                          </div>
-                          <div className="text-sm text-blue-800">
-                            Total Evaluaciones
-                          </div>
-                        </div>
-                        <div className="bg-green-50 rounded-lg p-4 text-center">
-                          <div className="text-2xl font-bold text-green-600">
-                            {resultadosEstudianteSemestre.primer_semestre.resumen_general.total_gacs_evaluados}
-                          </div>
-                          <div className="text-sm text-green-800">GACs Evaluados</div>
-                        </div>
-                        <div className="bg-purple-50 rounded-lg p-4 text-center">
-                          <div className="text-2xl font-bold text-purple-600">
-                            {resultadosEstudianteSemestre.primer_semestre.resumen_general.total_racs_evaluados}
-                          </div>
-                          <div className="text-sm text-purple-800">RACs Evaluados</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Gráficos */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="bg-white rounded-lg shadow-md p-6">
-                        <h4 className="text-lg font-semibold text-gray-800 mb-4">
-                          Promedio por Profesor
-                        </h4>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <BarChart
-                            data={resultadosEstudianteSemestre.primer_semestre.grafico_profesores || []}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="profesor" />
-                            <YAxis />
-                            <Tooltip />
-                            <Legend />
-                            <Bar dataKey="promedio" fill="#4F46E5" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-
-                      <div className="bg-white rounded-lg shadow-md p-6">
-                        <h4 className="text-lg font-semibold text-gray-800 mb-4">
-                          Promedio por GAC
-                        </h4>
-                        <ResponsiveContainer width="100%" height={300}>
-                          <BarChart
-                            data={resultadosEstudianteSemestre.primer_semestre.grafico_gacs || []}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="gac" />
-                            <YAxis />
-                            <Tooltip />
-                            <Legend />
-                            <Bar dataKey="promedio" fill="#10B981" />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-
-                    {/* Tabla de evaluaciones detalladas */}
-                    <div className="bg-white rounded-lg shadow-md p-6">
-                      <h4 className="text-xl font-semibold text-gray-800 mb-4">
-                        Evaluaciones Detalladas
-                      </h4>
-                      {resultadosEstudianteSemestre.primer_semestre.evaluaciones?.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Profesor
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  RAC
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Descripción
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                  Puntaje
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                              {resultadosEstudianteSemestre.primer_semestre.evaluaciones.map(
-                                (evalItem, index) => (
-                                  <tr key={index} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                      {evalItem.profesor}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                      {evalItem.rac_numero}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                      {evalItem.rac_descripcion}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                      {evalItem.puntaje}
-                                    </td>
-                                  </tr>
-                                )
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <p className="text-gray-500">
-                          No hay evaluaciones registradas para este estudiante.
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="text-center mt-8">
           <button
