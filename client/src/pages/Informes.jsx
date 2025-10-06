@@ -44,16 +44,34 @@ const Informes = () => {
   // Estados para funcionalidad de semestres en estudiantes
   const [resultadosPorEstudiante, setResultadosPorEstudiante] = useState({});
   const [cargandoResultados, setCargandoResultados] = useState({});
+  
+  // Estados para modal de detalles del estudiante
+  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
 
   useEffect(() => {
     cargarResultados();
   }, []);
 
+  // Cargar resultados de estudiantes cuando cambie la pestaña activa
+  useEffect(() => {
+    console.log("useEffect activado:", { activeTab, estudiantesProfesores: !!estudiantesProfesores });
+    if (activeTab === "estudiante" && estudiantesProfesores?.estudiantes_profesores) {
+      console.log("Cargando resultados automáticamente...");
+      cargarResultadosTodosEstudiantes();
+    }
+  }, [activeTab, estudiantesProfesores]);
+
   const cargarResultados = async () => {
     try {
       setLoading(true);
+      console.log("Cargando resultados globales...");
       const datos = await evaluacionApi.obtenerResultadosGlobales();
+      console.log("Resultados globales cargados:", datos);
       setResultadosGlobales(datos);
+      setGacsSemestre(datos.gacs_semestre);
+      setProfesoresMaterias(datos.profesores_materias);
+      setEstudiantesProfesores(datos.estudiantes_profesores);
+      console.log("Estudiantes profesores cargados:", datos.estudiantes_profesores);
     } catch (error) {
       toast.error("Error al cargar resultados: " + (error.message || error));
     } finally {
@@ -191,6 +209,67 @@ const Informes = () => {
     
     await Promise.allSettled(promesas);
     console.log("Resultados cargados:", resultadosPorEstudiante);
+  };
+
+  // Función para cargar resultados detallados de un estudiante seleccionado
+  const cargarResultadosEstudianteSeleccionado = async (estudiante) => {
+    try {
+      setLoading(true);
+      
+      // Si el estudiante ya tiene datos de GAC, usarlos directamente
+      if (estudiante.gacs) {
+        setEstudianteSeleccionado(estudiante);
+        return;
+      }
+      
+      // Si no, cargar los datos del estudiante
+      const estudianteId = estudiante.estudiante_id;
+      let resultados;
+      
+      // Si el estudiante pertenece a segundo semestre, usar la API por semestre
+      if (esSegundoSemestre(estudiante.estudiante_grupo)) {
+        resultados = await evaluacionApi.obtenerResultadosEstudiantePorSemestre(estudianteId);
+      } else {
+        // Para estudiantes de primer semestre, usar la API normal
+        const resultadosNormales = await evaluacionApi.obtenerResultadosEstudiante(estudianteId);
+        resultados = {
+          estudiante: {
+            id: estudianteId,
+            nombre: estudiante.estudiante_nombre,
+            grupo: estudiante.estudiante_grupo,
+            documento: estudiante.documento || 'N/A',
+            es_segundo_semestre: false
+          },
+          primer_semestre: resultadosNormales,
+          segundo_semestre: {
+            semestre: "Segundo Semestre",
+            resumen_general: {
+              promedio_general: 0,
+              total_evaluaciones: 0,
+              total_gacs_evaluados: 0,
+              total_racs_evaluados: 0,
+            },
+            grafico_profesores: [],
+            grafico_gacs: [],
+            evaluaciones: [],
+          }
+        };
+      }
+      
+      // Crear objeto con datos del estudiante y resultados
+      const estudianteConResultados = {
+        ...estudiante,
+        resultados: resultados
+      };
+      
+      setEstudianteSeleccionado(estudianteConResultados);
+      
+    } catch (error) {
+      console.error(`Error al cargar resultados del estudiante:`, error);
+      toast.error("Error al cargar detalles del estudiante");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Funciones para descargar PDFs
@@ -832,7 +911,7 @@ const Informes = () => {
                                   </td>
                                   <td className="px-4 py-2">
                                     <button
-                                      onClick={() => setEstudianteSeleccionado(estudiante)}
+                                      onClick={() => cargarResultadosEstudianteSeleccionado(estudiante)}
                                       className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                                     >
                                       Ver Detalles
@@ -849,7 +928,7 @@ const Informes = () => {
                 )}
 
                 {/* Modal de detalles del estudiante */}
-                {estudianteSeleccionado && (
+                {estudianteSeleccionado && estudianteSeleccionado.estudiante_nombre && (
                   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
                       <div className="flex justify-between items-center mb-4">
@@ -894,7 +973,7 @@ const Informes = () => {
                             📝 Evaluaciones Detalladas
                           </h4>
                           <div className="space-y-3">
-                            {estudianteSeleccionado.evaluaciones.map((evaluacion, index) => (
+                            {estudianteSeleccionado.evaluaciones && estudianteSeleccionado.evaluaciones.map((evaluacion, index) => (
                               <div key={index} className="bg-gray-50 p-3 rounded-lg">
                                 <div className="flex justify-between items-center">
                                   <div>
