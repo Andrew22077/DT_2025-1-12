@@ -10,6 +10,8 @@ import {
   FaEye,
   FaCircle,
   FaDownload,
+  FaBook,
+  FaBookOpen,
 } from "react-icons/fa";
 import {
   BarChart,
