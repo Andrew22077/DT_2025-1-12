@@ -1044,25 +1044,38 @@ def obtener_resultados_estudiante_por_semestre_interno(estudiante_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def resultados_globales(request):
+    """Obtener resultados globales completos con estadísticas detalladas"""
     try:
         # Todas las evaluaciones
-        evaluaciones = Evaluacion.objects.all()
+        evaluaciones = Evaluacion.objects.select_related('estudiante', 'profesor', 'rac').prefetch_related('rac__gacs', 'rac__materias').all()
 
         # Promedio general
         promedio_general = evaluaciones.aggregate(promedio=Avg("puntaje"))["promedio"] or 0
 
         # Totales
-        total_evaluaciones = evaluaciones.values("profesor", "estudiante").distinct().count()
+        total_evaluaciones = evaluaciones.count()
         total_gacs = evaluaciones.values("rac__gacs__id").distinct().count()
         total_racs = evaluaciones.values("rac__id").distinct().count()
         total_estudiantes = evaluaciones.values("estudiante").distinct().count()
         total_profesores = evaluaciones.values("profesor").distinct().count()
+        total_materias = evaluaciones.values("rac__materias__id").distinct().count()
+
+        # Definir grupos por semestre
+        primer_semestre = ['Virtual 1', '1A', '1B', '1C']
+        segundo_semestre = ['2A', '2B', '2C']
+        
+        # Estadísticas por semestre
+        evaluaciones_primer = evaluaciones.filter(estudiante__grupo__in=primer_semestre)
+        evaluaciones_segundo = evaluaciones.filter(estudiante__grupo__in=segundo_semestre)
+        
+        promedio_primer = evaluaciones_primer.aggregate(promedio=Avg("puntaje"))["promedio"] or 0
+        promedio_segundo = evaluaciones_segundo.aggregate(promedio=Avg("puntaje"))["promedio"] or 0
 
         # === Gráfico: promedio por profesor ===
         grafico_profesores_qs = (
             evaluaciones.values("profesor__nombre")
             .annotate(promedio=Avg("puntaje"))
-            .order_by("profesor__nombre")
+            .order_by("-promedio")
         )
         grafico_profesores = [
             {"profesor": g["profesor__nombre"], "promedio": round(g["promedio"], 2)}
@@ -1077,7 +1090,7 @@ def resultados_globales(request):
                 descripcion=F("rac__gacs__descripcion"),
                 promedio=Avg("puntaje"),
             )
-            .order_by("numero")
+            .order_by("-promedio")
         )
         grafico_gacs = [
             {
@@ -1092,12 +1105,99 @@ def resultados_globales(request):
         grafico_estudiantes_qs = (
             evaluaciones.values("estudiante__nombre")
             .annotate(promedio=Avg("puntaje"))
-            .order_by("estudiante__nombre")
+            .order_by("-promedio")
         )
         grafico_estudiantes = [
             {"estudiante": g["estudiante__nombre"], "promedio": round(g["promedio"], 2)}
             for g in grafico_estudiantes_qs
         ]
+
+        # === Estadísticas por GAC con semestres ===
+        gacs_stats = {}
+        for evaluacion in evaluaciones:
+            for gac in evaluacion.rac.gacs.all():
+                gac_key = f"GAC {gac.numero}"
+                if gac_key not in gacs_stats:
+                    gacs_stats[gac_key] = {
+                        'descripcion': gac.descripcion,
+                        'puntajes': [],
+                        'primer_semestre': [],
+                        'segundo_semestre': []
+                    }
+                
+                gacs_stats[gac_key]['puntajes'].append(evaluacion.puntaje)
+                
+                if evaluacion.estudiante.grupo in primer_semestre:
+                    gacs_stats[gac_key]['primer_semestre'].append(evaluacion.puntaje)
+                elif evaluacion.estudiante.grupo in segundo_semestre:
+                    gacs_stats[gac_key]['segundo_semestre'].append(evaluacion.puntaje)
+        
+        # Calcular promedios por GAC
+        gacs_por_semestre = []
+        for gac_key, gac_data in gacs_stats.items():
+            promedio_general_gac = sum(gac_data['puntajes']) / len(gac_data['puntajes']) if gac_data['puntajes'] else 0
+            promedio_primer_gac = sum(gac_data['primer_semestre']) / len(gac_data['primer_semestre']) if gac_data['primer_semestre'] else 0
+            promedio_segundo_gac = sum(gac_data['segundo_semestre']) / len(gac_data['segundo_semestre']) if gac_data['segundo_semestre'] else 0
+            
+            gacs_por_semestre.append({
+                'gac_numero': gac_key.split(' ')[1],
+                'gac_descripcion': gac_data['descripcion'],
+                'promedio_general': round(promedio_general_gac, 2),
+                'primer_semestre': {
+                    'promedio': round(promedio_primer_gac, 2),
+                    'total_evaluaciones': len(gac_data['primer_semestre'])
+                },
+                'segundo_semestre': {
+                    'promedio': round(promedio_segundo_gac, 2),
+                    'total_evaluaciones': len(gac_data['segundo_semestre'])
+                }
+            })
+        
+        # Ordenar GACs por promedio general
+        gacs_por_semestre.sort(key=lambda x: x['promedio_general'], reverse=True)
+
+        # === Estadísticas por materia ===
+        materias_stats = {}
+        for evaluacion in evaluaciones:
+            for materia in evaluacion.rac.materias.all():
+                materia_key = f"{materia.id}_{materia.nombre}"
+                if materia_key not in materias_stats:
+                    materias_stats[materia_key] = {
+                        'materia_nombre': materia.nombre,
+                        'puntajes': [],
+                        'primer_semestre': [],
+                        'segundo_semestre': []
+                    }
+                
+                materias_stats[materia_key]['puntajes'].append(evaluacion.puntaje)
+                
+                if evaluacion.estudiante.grupo in primer_semestre:
+                    materias_stats[materia_key]['primer_semestre'].append(evaluacion.puntaje)
+                elif evaluacion.estudiante.grupo in segundo_semestre:
+                    materias_stats[materia_key]['segundo_semestre'].append(evaluacion.puntaje)
+        
+        # Calcular promedios por materia
+        materias_por_semestre = []
+        for materia_key, materia_data in materias_stats.items():
+            promedio_general_materia = sum(materia_data['puntajes']) / len(materia_data['puntajes']) if materia_data['puntajes'] else 0
+            promedio_primer_materia = sum(materia_data['primer_semestre']) / len(materia_data['primer_semestre']) if materia_data['primer_semestre'] else 0
+            promedio_segundo_materia = sum(materia_data['segundo_semestre']) / len(materia_data['segundo_semestre']) if materia_data['segundo_semestre'] else 0
+            
+            materias_por_semestre.append({
+                'materia_nombre': materia_data['materia_nombre'],
+                'promedio_general': round(promedio_general_materia, 2),
+                'primer_semestre': {
+                    'promedio': round(promedio_primer_materia, 2),
+                    'total_evaluaciones': len(materia_data['primer_semestre'])
+                },
+                'segundo_semestre': {
+                    'promedio': round(promedio_segundo_materia, 2),
+                    'total_evaluaciones': len(materia_data['segundo_semestre'])
+                }
+            })
+        
+        # Ordenar materias por promedio general
+        materias_por_semestre.sort(key=lambda x: x['promedio_general'], reverse=True)
 
         # === Lista de evaluaciones detalladas ===
         evaluaciones_detalle = [
@@ -1114,15 +1214,24 @@ def resultados_globales(request):
         data = {
             "resumen_general": {
                 "promedio_general": round(promedio_general, 2),
+                "promedio_primer_semestre": round(promedio_primer, 2),
+                "promedio_segundo_semestre": round(promedio_segundo, 2),
                 "total_evaluaciones": total_evaluaciones,
+                "total_evaluaciones_primer": evaluaciones_primer.count(),
+                "total_evaluaciones_segundo": evaluaciones_segundo.count(),
                 "total_gacs_evaluados": total_gacs,
                 "total_racs_evaluados": total_racs,
                 "total_estudiantes": total_estudiantes,
+                "total_estudiantes_primer": evaluaciones_primer.values('estudiante').distinct().count(),
+                "total_estudiantes_segundo": evaluaciones_segundo.values('estudiante').distinct().count(),
                 "total_profesores": total_profesores,
+                "total_materias": total_materias,
             },
             "grafico_profesores": grafico_profesores,
             "grafico_gacs": grafico_gacs,
             "grafico_estudiantes": grafico_estudiantes,
+            "gacs_por_semestre": gacs_por_semestre,
+            "materias_por_semestre": materias_por_semestre,
             "evaluaciones": evaluaciones_detalle,
         }
 
@@ -1735,76 +1844,358 @@ def crear_tabla_pdf(data, headers, col_widths=None):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def descargar_pdf_resumen_general(request):
-    """Descargar PDF del resumen general"""
+    """Descargar PDF del resumen general completo"""
     try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        from django.http import HttpResponse
+        from datetime import datetime
+        
+        # Crear buffer para el PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+        
+        # Estilos personalizados con colores
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.darkblue,
+            fontName='Helvetica-Bold'
+        )
+        
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12,
+            textColor=colors.darkgreen,
+            fontName='Helvetica-Bold'
+        )
+        
+        section_style = ParagraphStyle(
+            'CustomSection',
+            parent=styles['Heading3'],
+            fontSize=12,
+            spaceAfter=8,
+            textColor=colors.darkred,
+            fontName='Helvetica-Bold'
+        )
+        
         # Obtener datos del resumen general
-        evaluaciones = Evaluacion.objects.all()
+        evaluaciones = Evaluacion.objects.select_related('estudiante', 'profesor', 'rac').prefetch_related('rac__gacs', 'rac__materias').all()
+        
+        # Estadísticas básicas
         promedio_general = evaluaciones.aggregate(promedio=Avg("puntaje"))["promedio"] or 0
-        total_evaluaciones = evaluaciones.values("profesor", "estudiante").distinct().count()
+        total_evaluaciones = evaluaciones.count()
         total_estudiantes = evaluaciones.values("estudiante").distinct().count()
         total_profesores = evaluaciones.values("profesor").distinct().count()
         total_gacs = evaluaciones.values("rac__gacs__id").distinct().count()
-
-        # Crear buffer para el PDF
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
-        story = []
-        estilos = crear_estilos_pdf()
-
-        # Título
-        story.append(Paragraph("INFORME RESUMEN GENERAL", estilos['titulo']))
-        story.append(Paragraph(f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos['texto']))
-        story.append(Spacer(1, 20))
-
-        # Resumen general
-        story.append(Paragraph("RESUMEN GENERAL", estilos['subtitulo']))
-        resumen_data = [
-            ['Métrica', 'Valor'],
-            ['Total de Evaluaciones', str(total_evaluaciones)],
-            ['Total de Estudiantes', str(total_estudiantes)],
-            ['Total de Profesores', str(total_profesores)],
-            ['Total de GACs Evaluados', str(total_gacs)],
-            ['Promedio General', f"{promedio_general:.2f}"]
-        ]
-        story.append(crear_tabla_pdf(resumen_data, None))
-        story.append(Spacer(1, 20))
-
-        # Gráfico por GAC
-        story.append(Paragraph("PROMEDIO POR GAC", estilos['subtitulo']))
-        grafico_gacs_qs = (
-            evaluaciones.values("rac__gacs__id")
-            .annotate(
-                numero=F("rac__gacs__numero"),
-                descripcion=F("rac__gacs__descripcion"),
-                promedio=Avg("puntaje"),
-            )
-            .order_by("numero")
-        )
+        total_materias = evaluaciones.values("rac__materias__id").distinct().count()
         
-        gac_data = [['GAC', 'Descripción', 'Promedio']]
-        for g in grafico_gacs_qs:
-            gac_data.append([
-                f"GAC {g['numero']}",
-                g["descripcion"][:50] + "..." if len(g["descripcion"]) > 50 else g["descripcion"],
-                f"{g['promedio']:.2f}"
+        # Definir grupos por semestre
+        primer_semestre = ['Virtual 1', '1A', '1B', '1C']
+        segundo_semestre = ['2A', '2B', '2C']
+        
+        # Estadísticas por semestre
+        evaluaciones_primer = evaluaciones.filter(estudiante__grupo__in=primer_semestre)
+        evaluaciones_segundo = evaluaciones.filter(estudiante__grupo__in=segundo_semestre)
+        
+        promedio_primer = evaluaciones_primer.aggregate(promedio=Avg("puntaje"))["promedio"] or 0
+        promedio_segundo = evaluaciones_segundo.aggregate(promedio=Avg("puntaje"))["promedio"] or 0
+        
+        # Estadísticas por GAC
+        gacs_stats = {}
+        for evaluacion in evaluaciones:
+            for gac in evaluacion.rac.gacs.all():
+                gac_key = f"GAC {gac.numero}"
+                if gac_key not in gacs_stats:
+                    gacs_stats[gac_key] = {
+                        'descripcion': gac.descripcion,
+                        'puntajes': [],
+                        'primer_semestre': [],
+                        'segundo_semestre': []
+                    }
+                
+                gacs_stats[gac_key]['puntajes'].append(evaluacion.puntaje)
+                
+                if evaluacion.estudiante.grupo in primer_semestre:
+                    gacs_stats[gac_key]['primer_semestre'].append(evaluacion.puntaje)
+                elif evaluacion.estudiante.grupo in segundo_semestre:
+                    gacs_stats[gac_key]['segundo_semestre'].append(evaluacion.puntaje)
+        
+        # Calcular promedios por GAC
+        gacs_resultado = []
+        for gac_key, gac_data in gacs_stats.items():
+            promedio_general_gac = sum(gac_data['puntajes']) / len(gac_data['puntajes']) if gac_data['puntajes'] else 0
+            promedio_primer_gac = sum(gac_data['primer_semestre']) / len(gac_data['primer_semestre']) if gac_data['primer_semestre'] else 0
+            promedio_segundo_gac = sum(gac_data['segundo_semestre']) / len(gac_data['segundo_semestre']) if gac_data['segundo_semestre'] else 0
+            
+            gacs_resultado.append({
+                'gac': gac_key,
+                'descripcion': gac_data['descripcion'],
+                'promedio_general': round(promedio_general_gac, 2),
+                'promedio_primer': round(promedio_primer_gac, 2),
+                'promedio_segundo': round(promedio_segundo_gac, 2),
+                'total_evaluaciones': len(gac_data['puntajes']),
+                'evaluaciones_primer': len(gac_data['primer_semestre']),
+                'evaluaciones_segundo': len(gac_data['segundo_semestre'])
+            })
+        
+        # Ordenar GACs por promedio general
+        gacs_resultado.sort(key=lambda x: x['promedio_general'], reverse=True)
+        
+        # Estadísticas por materia
+        materias_stats = {}
+        for evaluacion in evaluaciones:
+            for materia in evaluacion.rac.materias.all():
+                materia_key = f"{materia.id}_{materia.nombre}"
+                if materia_key not in materias_stats:
+                    materias_stats[materia_key] = {
+                        'materia_nombre': materia.nombre,
+                        'puntajes': [],
+                        'primer_semestre': [],
+                        'segundo_semestre': []
+                    }
+                
+                materias_stats[materia_key]['puntajes'].append(evaluacion.puntaje)
+                
+                if evaluacion.estudiante.grupo in primer_semestre:
+                    materias_stats[materia_key]['primer_semestre'].append(evaluacion.puntaje)
+                elif evaluacion.estudiante.grupo in segundo_semestre:
+                    materias_stats[materia_key]['segundo_semestre'].append(evaluacion.puntaje)
+        
+        # Calcular promedios por materia
+        materias_resultado = []
+        for materia_key, materia_data in materias_stats.items():
+            promedio_general_materia = sum(materia_data['puntajes']) / len(materia_data['puntajes']) if materia_data['puntajes'] else 0
+            promedio_primer_materia = sum(materia_data['primer_semestre']) / len(materia_data['primer_semestre']) if materia_data['primer_semestre'] else 0
+            promedio_segundo_materia = sum(materia_data['segundo_semestre']) / len(materia_data['segundo_semestre']) if materia_data['segundo_semestre'] else 0
+            
+            materias_resultado.append({
+                'materia_nombre': materia_data['materia_nombre'],
+                'promedio_general': round(promedio_general_materia, 2),
+                'promedio_primer': round(promedio_primer_materia, 2),
+                'promedio_segundo': round(promedio_segundo_materia, 2),
+                'total_evaluaciones': len(materia_data['puntajes']),
+                'evaluaciones_primer': len(materia_data['primer_semestre']),
+                'evaluaciones_segundo': len(materia_data['segundo_semestre'])
+            })
+        
+        # Ordenar materias por promedio general
+        materias_resultado.sort(key=lambda x: x['promedio_general'], reverse=True)
+        
+        # Estadísticas por profesor
+        profesores_stats = {}
+        for evaluacion in evaluaciones:
+            profesor_key = f"{evaluacion.profesor.id}_{evaluacion.profesor.nombre}"
+            if profesor_key not in profesores_stats:
+                profesores_stats[profesor_key] = {
+                    'profesor_nombre': evaluacion.profesor.nombre,
+                    'puntajes': [],
+                    'primer_semestre': [],
+                    'segundo_semestre': []
+                }
+            
+            profesores_stats[profesor_key]['puntajes'].append(evaluacion.puntaje)
+            
+            if evaluacion.estudiante.grupo in primer_semestre:
+                profesores_stats[profesor_key]['primer_semestre'].append(evaluacion.puntaje)
+            elif evaluacion.estudiante.grupo in segundo_semestre:
+                profesores_stats[profesor_key]['segundo_semestre'].append(evaluacion.puntaje)
+        
+        # Calcular promedios por profesor
+        profesores_resultado = []
+        for profesor_key, profesor_data in profesores_stats.items():
+            promedio_general_profesor = sum(profesor_data['puntajes']) / len(profesor_data['puntajes']) if profesor_data['puntajes'] else 0
+            promedio_primer_profesor = sum(profesor_data['primer_semestre']) / len(profesor_data['primer_semestre']) if profesor_data['primer_semestre'] else 0
+            promedio_segundo_profesor = sum(profesor_data['segundo_semestre']) / len(profesor_data['segundo_semestre']) if profesor_data['segundo_semestre'] else 0
+            
+            profesores_resultado.append({
+                'profesor_nombre': profesor_data['profesor_nombre'],
+                'promedio_general': round(promedio_general_profesor, 2),
+                'promedio_primer': round(promedio_primer_profesor, 2),
+                'promedio_segundo': round(promedio_segundo_profesor, 2),
+                'total_evaluaciones': len(profesor_data['puntajes']),
+                'evaluaciones_primer': len(profesor_data['primer_semestre']),
+                'evaluaciones_segundo': len(profesor_data['segundo_semestre'])
+            })
+        
+        # Ordenar profesores por promedio general
+        profesores_resultado.sort(key=lambda x: x['promedio_general'], reverse=True)
+        
+        # Preparar datos para el PDF
+        story = []
+        
+        # Título principal
+        story.append(Paragraph("📊 INFORME GENERAL COMPLETO", title_style))
+        story.append(Paragraph(f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
+        story.append(Spacer(1, 20))
+
+        # Resumen general con estadísticas básicas
+        story.append(Paragraph("📈 RESUMEN GENERAL", subtitle_style))
+        
+        resumen_table = [['Métrica', 'Valor', 'Primer Semestre', 'Segundo Semestre']]
+        resumen_table.append([
+            'Total Evaluaciones',
+            str(total_evaluaciones),
+            str(evaluaciones_primer.count()),
+            str(evaluaciones_segundo.count())
+        ])
+        resumen_table.append([
+            'Total Estudiantes',
+            str(total_estudiantes),
+            str(evaluaciones_primer.values('estudiante').distinct().count()),
+            str(evaluaciones_segundo.values('estudiante').distinct().count())
+        ])
+        resumen_table.append([
+            'Total Profesores',
+            str(total_profesores),
+            str(evaluaciones_primer.values('profesor').distinct().count()),
+            str(evaluaciones_segundo.values('profesor').distinct().count())
+        ])
+        resumen_table.append([
+            'Total GACs',
+            str(total_gacs),
+            '-',
+            '-'
+        ])
+        resumen_table.append([
+            'Total Materias',
+            str(total_materias),
+            '-',
+            '-'
+        ])
+        resumen_table.append([
+            'Promedio General',
+            f"{promedio_general:.2f}",
+            f"{promedio_primer:.2f}",
+            f"{promedio_segundo:.2f}"
+        ])
+        
+        # Crear tabla resumen con colores
+        resumen_table_obj = Table(resumen_table, colWidths=[2*inch, 1*inch, 1*inch, 1*inch])
+        resumen_table_obj.setStyle(TableStyle([
+            # Header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            # Filas de datos
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            # Colores específicos
+            ('BACKGROUND', (2, 1), (2, -1), colors.lightblue),  # Primer semestre
+            ('BACKGROUND', (3, 1), (3, -1), colors.lightgreen),  # Segundo semestre
+        ]))
+        
+        story.append(resumen_table_obj)
+        story.append(Spacer(1, 20))
+
+        # Top GACs con mejor rendimiento
+        story.append(Paragraph("🎯 TOP GACs CON MEJOR RENDIMIENTO", subtitle_style))
+        
+        gac_table = [['GAC', 'Descripción', 'Promedio General', '1er Semestre', '2do Semestre', 'Total Evaluaciones']]
+        for gac in gacs_resultado[:10]:  # Top 10 GACs
+            gac_table.append([
+                gac['gac'],
+                gac['descripcion'][:30] + "..." if len(gac['descripcion']) > 30 else gac['descripcion'],
+                f"{gac['promedio_general']:.2f}",
+                f"{gac['promedio_primer']:.2f}",
+                f"{gac['promedio_segundo']:.2f}",
+                str(gac['total_evaluaciones'])
             ])
         
-        story.append(crear_tabla_pdf(gac_data, None))
+        gac_table_obj = Table(gac_table, colWidths=[0.8*inch, 2*inch, 1*inch, 1*inch, 1*inch, 1*inch])
+        gac_table_obj.setStyle(TableStyle([
+            # Header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            # Filas de datos
+            ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ]))
+        
+        story.append(gac_table_obj)
         story.append(Spacer(1, 20))
 
-        # Gráfico por Profesor
-        story.append(Paragraph("PROMEDIO POR PROFESOR", estilos['subtitulo']))
-        grafico_profesores_qs = (
-            evaluaciones.values("profesor__nombre")
-            .annotate(promedio=Avg("puntaje"))
-            .order_by("profesor__nombre")
-        )
+        # Top Materias con mejor rendimiento
+        story.append(Paragraph("📚 TOP MATERIAS CON MEJOR RENDIMIENTO", subtitle_style))
         
-        profesor_data = [['Profesor', 'Promedio']]
-        for g in grafico_profesores_qs:
-            profesor_data.append([g["profesor__nombre"], f"{g['promedio']:.2f}"])
+        materia_table = [['Materia', 'Promedio General', '1er Semestre', '2do Semestre', 'Total Evaluaciones']]
+        for materia in materias_resultado[:10]:  # Top 10 materias
+            materia_table.append([
+                materia['materia_nombre'][:40] + "..." if len(materia['materia_nombre']) > 40 else materia['materia_nombre'],
+                f"{materia['promedio_general']:.2f}",
+                f"{materia['promedio_primer']:.2f}",
+                f"{materia['promedio_segundo']:.2f}",
+                str(materia['total_evaluaciones'])
+            ])
         
-        story.append(crear_tabla_pdf(profesor_data, None))
+        materia_table_obj = Table(materia_table, colWidths=[2.5*inch, 1*inch, 1*inch, 1*inch, 1*inch])
+        materia_table_obj.setStyle(TableStyle([
+            # Header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkred),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            # Filas de datos
+            ('BACKGROUND', (0, 1), (-1, -1), colors.lightcoral),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ]))
+        
+        story.append(materia_table_obj)
+        story.append(Spacer(1, 20))
+
+        # Top Profesores con mejor rendimiento
+        story.append(Paragraph("👨‍🏫 TOP PROFESORES CON MEJOR RENDIMIENTO", subtitle_style))
+        
+        profesor_table = [['Profesor', 'Promedio General', '1er Semestre', '2do Semestre', 'Total Evaluaciones']]
+        for profesor in profesores_resultado[:10]:  # Top 10 profesores
+            profesor_table.append([
+                profesor['profesor_nombre'][:30] + "..." if len(profesor['profesor_nombre']) > 30 else profesor['profesor_nombre'],
+                f"{profesor['promedio_general']:.2f}",
+                f"{profesor['promedio_primer']:.2f}",
+                f"{profesor['promedio_segundo']:.2f}",
+                str(profesor['total_evaluaciones'])
+            ])
+        
+        profesor_table_obj = Table(profesor_table, colWidths=[2*inch, 1*inch, 1*inch, 1*inch, 1*inch])
+        profesor_table_obj.setStyle(TableStyle([
+            # Header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkorange),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            # Filas de datos
+            ('BACKGROUND', (0, 1), (-1, -1), colors.lightyellow),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+        ]))
+        
+        story.append(profesor_table_obj)
+        story.append(Spacer(1, 20))
 
         # Construir PDF
         doc.build(story)
@@ -1812,7 +2203,7 @@ def descargar_pdf_resumen_general(request):
 
         # Crear respuesta HTTP
         response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="resumen_general_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="informe_general_completo_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
         return response
 
     except Exception as e:

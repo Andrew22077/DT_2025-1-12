@@ -644,53 +644,213 @@ const Informes = () => {
               </button>
             </div>
 
-            {/* Resumen */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-              <div className="bg-blue-50 rounded-lg p-6 text-center shadow-md">
-                <FaChartBar className="text-3xl text-blue-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-blue-600">
-                  {resumen_general.total_evaluaciones}
+            {/* Resumen General */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+                📊 Resumen General
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+                <div className="bg-blue-50 rounded-lg p-6 text-center shadow-md">
+                  <FaChartBar className="text-3xl text-blue-600 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-blue-600">
+                    {resumen_general.total_evaluaciones}
+                  </div>
+                  <div className="text-sm text-blue-800">Total Evaluaciones</div>
                 </div>
-                <div className="text-sm text-blue-800">Total Evaluaciones</div>
-              </div>
-              <div className="bg-green-50 rounded-lg p-6 text-center shadow-md">
-                <FaUsers className="text-3xl text-green-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-green-600">
-                  {resumen_general.total_estudiantes}
+                <div className="bg-green-50 rounded-lg p-6 text-center shadow-md">
+                  <FaUsers className="text-3xl text-green-600 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-green-600">
+                    {resumen_general.total_estudiantes}
+                  </div>
+                  <div className="text-sm text-green-800">Estudiantes</div>
                 </div>
-                <div className="text-sm text-green-800">Estudiantes</div>
-              </div>
-              <div className="bg-yellow-50 rounded-lg p-6 text-center shadow-md">
-                <FaChalkboardTeacher className="text-3xl text-yellow-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-yellow-600">
-                  {resumen_general.total_profesores}
+                <div className="bg-yellow-50 rounded-lg p-6 text-center shadow-md">
+                  <FaChalkboardTeacher className="text-3xl text-yellow-600 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-yellow-600">
+                    {resumen_general.total_profesores}
+                  </div>
+                  <div className="text-sm text-yellow-800">Profesores</div>
                 </div>
-                <div className="text-sm text-yellow-800">Profesores</div>
-              </div>
-              <div className="bg-purple-50 rounded-lg p-6 text-center shadow-md">
-                <FaGraduationCap className="text-3xl text-purple-600 mx-auto mb-2" />
-                <div
-                  className={`text-2xl font-bold ${getColorByPuntaje(
-                    resumen_general.promedio_general
-                  )}`}
-                >
-                  {resumen_general.promedio_general.toFixed(2)}
+                <div className="bg-purple-50 rounded-lg p-6 text-center shadow-md">
+                  <FaGraduationCap className="text-3xl text-purple-600 mx-auto mb-2" />
+                  <div
+                    className={`text-2xl font-bold ${getColorByPuntaje(
+                      resumen_general.promedio_general
+                    )}`}
+                  >
+                    {resumen_general.promedio_general?.toFixed(2) || "0.00"}
+                  </div>
+                  <div className="text-sm text-purple-800">Promedio General</div>
                 </div>
-                <div className="text-sm text-purple-800">Promedio General</div>
-              </div>
-              <div className="bg-orange-50 rounded-lg p-6 text-center shadow-md">
-                <FaCheckCircle className="text-3xl text-orange-600 mx-auto mb-2" />
-                <div className="text-2xl font-bold text-orange-600">
-                  {resumen_general.total_gacs_evaluados}
+                <div className="bg-indigo-50 rounded-lg p-6 text-center shadow-md">
+                  <FaBook className="text-3xl text-indigo-600 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-indigo-600">
+                    {resumen_general.total_gacs_evaluados}
+                  </div>
+                  <div className="text-sm text-indigo-800">GACs Evaluados</div>
                 </div>
-                <div className="text-sm text-orange-800">GACs Evaluados</div>
+                <div className="bg-pink-50 rounded-lg p-6 text-center shadow-md">
+                  <FaBookOpen className="text-3xl text-pink-600 mx-auto mb-2" />
+                  <div className="text-2xl font-bold text-pink-600">
+                    {resumen_general.total_materias}
+                  </div>
+                  <div className="text-sm text-pink-800">Materias</div>
+                </div>
               </div>
             </div>
+
+            {/* Comparación por Semestres */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+                📚 Comparación por Semestres
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-blue-50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-4">
+                    🎓 Primer Semestre
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">Promedio:</span>
+                      <span className={`font-bold ${getColorByPuntaje(resumen_general.promedio_primer_semestre)}`}>
+                        {resumen_general.promedio_primer_semestre?.toFixed(2) || "0.00"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">Evaluaciones:</span>
+                      <span className="font-bold text-blue-800">
+                        {resumen_general.total_evaluaciones_primer || 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-700">Estudiantes:</span>
+                      <span className="font-bold text-blue-800">
+                        {resumen_general.total_estudiantes_primer || 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-green-50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-green-800 mb-4">
+                    🎓 Segundo Semestre
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-green-700">Promedio:</span>
+                      <span className={`font-bold ${getColorByPuntaje(resumen_general.promedio_segundo_semestre)}`}>
+                        {resumen_general.promedio_segundo_semestre?.toFixed(2) || "0.00"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-700">Evaluaciones:</span>
+                      <span className="font-bold text-green-800">
+                        {resumen_general.total_evaluaciones_segundo || 0}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-green-700">Estudiantes:</span>
+                      <span className="font-bold text-green-800">
+                        {resumen_general.total_estudiantes_segundo || 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Top GACs con mejor rendimiento */}
+            {resultadosGlobales.gacs_por_semestre && resultadosGlobales.gacs_por_semestre.length > 0 && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+                  🎯 Top GACs con Mejor Rendimiento
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {resultadosGlobales.gacs_por_semestre.slice(0, 6).map((gac, index) => (
+                    <div key={index} className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4 border border-green-200">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-semibold text-gray-800">
+                          {gac.gac_numero}
+                        </h3>
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                          #{index + 1}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">
+                        {gac.gac_descripcion}
+                      </p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Promedio General:</span>
+                          <span className={`font-bold ${getColorByPuntaje(gac.promedio_general)}`}>
+                            {gac.promedio_general}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-blue-600">1er Semestre:</span>
+                          <span className={`font-bold ${getColorByPuntaje(gac.primer_semestre.promedio)}`}>
+                            {gac.primer_semestre.promedio}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-green-600">2do Semestre:</span>
+                          <span className={`font-bold ${getColorByPuntaje(gac.segundo_semestre.promedio)}`}>
+                            {gac.segundo_semestre.promedio}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Top Materias con mejor rendimiento */}
+            {resultadosGlobales.materias_por_semestre && resultadosGlobales.materias_por_semestre.length > 0 && (
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h2 className="text-2xl font-semibold text-gray-800 mb-6">
+                  📚 Top Materias con Mejor Rendimiento
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {resultadosGlobales.materias_por_semestre.slice(0, 6).map((materia, index) => (
+                    <div key={index} className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-200">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-semibold text-gray-800 text-sm">
+                          {materia.materia_nombre}
+                        </h3>
+                        <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                          #{index + 1}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">Promedio General:</span>
+                          <span className={`font-bold ${getColorByPuntaje(materia.promedio_general)}`}>
+                            {materia.promedio_general}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-blue-600">1er Semestre:</span>
+                          <span className={`font-bold ${getColorByPuntaje(materia.primer_semestre.promedio)}`}>
+                            {materia.primer_semestre.promedio}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-green-600">2do Semestre:</span>
+                          <span className={`font-bold ${getColorByPuntaje(materia.segundo_semestre.promedio)}`}>
+                            {materia.segundo_semestre.promedio}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Gráfico comparativo GACs */}
             <div className="bg-white rounded-lg shadow-md p-6">
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                Promedio por GAC
+                📊 Promedio por GAC
               </h2>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={grafico_gacs}>
