@@ -1875,17 +1875,62 @@ def descargar_pdf_por_gac(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def descargar_pdf_por_profesor(request):
-    """Descargar PDF del informe por profesor"""
+    """Descargar PDF del informe por profesor con colores y resultados por GAC"""
     try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        from django.http import HttpResponse
+        from datetime import datetime
+        
+        # Crear buffer para el PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=72, leftMargin=72, topMargin=72, bottomMargin=18)
+        
+        # Estilos personalizados con colores
+        styles = getSampleStyleSheet()
+        
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.darkblue,
+            fontName='Helvetica-Bold'
+        )
+        
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=12,
+            textColor=colors.darkgreen,
+            fontName='Helvetica-Bold'
+        )
+        
+        section_style = ParagraphStyle(
+            'CustomSection',
+            parent=styles['Heading3'],
+            fontSize=12,
+            spaceAfter=8,
+            textColor=colors.darkred,
+            fontName='Helvetica-Bold'
+        )
+        
         # Obtener datos del informe por profesor
         evaluaciones = Evaluacion.objects.select_related(
             'profesor', 'estudiante', 'rac'
-        ).prefetch_related('rac__materias').all()
+        ).prefetch_related('rac__materias', 'rac__gacs').all()
         
         if not evaluaciones.exists():
             return JsonResponse({'error': 'No hay evaluaciones disponibles'}, status=404)
         
-        # Procesar datos (mismo código que en informes_por_profesor_materia)
+        # Procesar datos por profesor-materia
         profesores_data = {}
         
         for evaluacion in evaluaciones:
@@ -1909,11 +1954,24 @@ def descargar_pdf_por_profesor(request):
                             'materia_nombre': materia_nombre,
                             'puntajes': [],
                             'estudiantes_evaluados': set(),
-                            'total_estudiantes': 0
+                            'total_estudiantes': 0,
+                            'gacs_data': {}
                         }
                     
                     profesores_data[key]['puntajes'].append(evaluacion.puntaje)
                     profesores_data[key]['estudiantes_evaluados'].add(evaluacion.estudiante.id)
+                    
+                    # Procesar GACs
+                    for gac in evaluacion.rac.gacs.all():
+                        gac_key = f"GAC {gac.numero}"
+                        if gac_key not in profesores_data[key]['gacs_data']:
+                            profesores_data[key]['gacs_data'][gac_key] = {
+                                'gac': gac_key,
+                                'descripcion': gac.descripcion,
+                                'puntajes': []
+                            }
+                        profesores_data[key]['gacs_data'][gac_key]['puntajes'].append(evaluacion.puntaje)
+                        
             except Exception as e:
                 continue
         
@@ -1945,6 +2003,18 @@ def descargar_pdf_por_profesor(request):
                 else:
                     color_semaforo = 'Verde'
                 
+                # Calcular promedios por GAC
+                gacs_promedio = []
+                for gac_data in data['gacs_data'].values():
+                    if gac_data['puntajes']:
+                        promedio_gac = sum(gac_data['puntajes']) / len(gac_data['puntajes'])
+                        gacs_promedio.append({
+                            'gac': gac_data['gac'],
+                            'descripcion': gac_data['descripcion'],
+                            'promedio': round(promedio_gac, 2),
+                            'total_evaluaciones': len(gac_data['puntajes'])
+                        })
+                
                 resultado.append({
                     'profesor_nombre': data['profesor_nombre'],
                     'materia_nombre': data['materia_nombre'],
@@ -1952,26 +2022,32 @@ def descargar_pdf_por_profesor(request):
                     'estudiantes_evaluados': estudiantes_evaluados,
                     'total_estudiantes': total_estudiantes,
                     'porcentaje_evaluacion': round(porcentaje_evaluacion, 1),
-                    'color_semaforo': color_semaforo
+                    'color_semaforo': color_semaforo,
+                    'gacs': gacs_promedio
                 })
 
-        # Crear PDF
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        # Preparar datos para el PDF
         story = []
-        estilos = crear_estilos_pdf()
-
-        # Título
-        story.append(Paragraph("INFORME POR PROFESOR Y MATERIA", estilos['titulo']))
-        story.append(Paragraph(f"Fecha de generación: {datetime.now().strftime('%d/%m/%Y %H:%M')}", estilos['texto']))
+        
+        # Título principal
+        story.append(Paragraph("📊 INFORME POR PROFESOR Y MATERIA", title_style))
+        story.append(Paragraph(f"Generado el: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
         story.append(Spacer(1, 20))
 
-        # Tabla de datos
-        story.append(Paragraph("PROMEDIOS POR PROFESOR Y MATERIA", estilos['subtitulo']))
+        # Tabla resumen con colores
+        story.append(Paragraph("📈 RESUMEN GENERAL", subtitle_style))
         
-        profesor_data_table = [['Profesor', 'Materia', 'Promedio', 'Evaluados', 'Total', 'Progreso %', 'Estado']]
+        resumen_table = [['Profesor', 'Materia', 'Promedio', 'Evaluados', 'Total', 'Progreso %', 'Estado']]
         for item in resultado:
-            profesor_data_table.append([
+            # Determinar color de fondo según el promedio
+            if item['promedio'] >= 4.0:
+                color_fondo = colors.lightgreen
+            elif item['promedio'] >= 3.0:
+                color_fondo = colors.lightyellow
+            else:
+                color_fondo = colors.lightcoral
+            
+            resumen_table.append([
                 item['profesor_nombre'][:20] + "..." if len(item['profesor_nombre']) > 20 else item['profesor_nombre'],
                 item['materia_nombre'][:25] + "..." if len(item['materia_nombre']) > 25 else item['materia_nombre'],
                 str(item['promedio']),
@@ -1981,7 +2057,72 @@ def descargar_pdf_por_profesor(request):
                 item['color_semaforo']
             ])
         
-        story.append(crear_tabla_pdf(profesor_data_table, None))
+        # Crear tabla con estilos de colores
+        resumen_table_obj = Table(resumen_table, colWidths=[1.5*inch, 1.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 0.8*inch, 1*inch])
+        resumen_table_obj.setStyle(TableStyle([
+            # Header
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            # Filas de datos con colores alternados
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            # Colores específicos por promedio
+            ('BACKGROUND', (2, 1), (2, -1), colors.lightblue),  # Columna promedio
+        ]))
+        
+        story.append(resumen_table_obj)
+        story.append(Spacer(1, 20))
+
+        # Detalles por profesor-materia con GACs
+        story.append(Paragraph("🎯 DETALLES POR PROFESOR Y MATERIA", subtitle_style))
+        
+        for item in resultado:
+            # Información del profesor-materia
+            story.append(Paragraph(f"<b>👨‍🏫 PROFESOR:</b> {item['profesor_nombre']}", section_style))
+            story.append(Paragraph(f"<b>📚 MATERIA:</b> {item['materia_nombre']}", styles['Normal']))
+            story.append(Paragraph(f"<b>📊 PROMEDIO GENERAL:</b> {item['promedio']} | <b>ESTUDIANTES EVALUADOS:</b> {item['estudiantes_evaluados']}/{item['total_estudiantes']} ({item['porcentaje_evaluacion']}%)", styles['Normal']))
+            
+            # Tabla de GACs si existen
+            if item['gacs']:
+                story.append(Paragraph("<b>🎯 RESULTADOS POR GAC:</b>", styles['Heading4']))
+                
+                gac_table_data = [['GAC', 'Descripción', 'Promedio', 'Evaluaciones']]
+                for gac in item['gacs']:
+                    gac_table_data.append([
+                        gac['gac'],
+                        gac['descripcion'][:40] + "..." if len(gac['descripcion']) > 40 else gac['descripcion'],
+                        str(gac['promedio']),
+                        str(gac['total_evaluaciones'])
+                    ])
+                
+                gac_table = Table(gac_table_data, colWidths=[1*inch, 2.5*inch, 1*inch, 1*inch])
+                gac_table.setStyle(TableStyle([
+                    # Header
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 9),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                    # Filas de datos
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.lightgreen),
+                    ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                    ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ]))
+                
+                story.append(gac_table)
+            else:
+                story.append(Paragraph("<i>No hay datos de GAC disponibles para esta materia.</i>", styles['Normal']))
+            
+            story.append(Spacer(1, 15))
+            
+            # Salto de página cada 3 profesores
+            if (resultado.index(item) + 1) % 3 == 0:
+                story.append(PageBreak())
 
         # Construir PDF
         doc.build(story)
@@ -1989,7 +2130,7 @@ def descargar_pdf_por_profesor(request):
 
         # Crear respuesta HTTP
         response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="informe_por_profesor_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        response['Content-Disposition'] = f'attachment; filename="informe_profesores_detallado_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
         return response
 
     except Exception as e:
