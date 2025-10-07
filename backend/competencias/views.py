@@ -2828,7 +2828,7 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
             for gac in evaluacion.rac.gacs.all():
                 if gac.numero not in gacs_data:
                     gacs_data[gac.numero] = {
-                        'nombre': gac.nombre,
+                        'descripcion': gac.descripcion,
                         'evaluaciones': [],
                         'promedio': 0
                     }
@@ -2900,7 +2900,7 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
             story.append(Paragraph("🎯 Resultados por GAC (Grupo de Área de Conocimiento)", estilos['subtitulo']))
             story.append(Spacer(1, 10))
             
-            gac_table_data = [["GAC", "Nombre del GAC", "Promedio", "Evaluaciones"]]
+            gac_table_data = [["GAC", "Descripción del GAC", "Promedio", "Evaluaciones"]]
             for gac_num, data in sorted(gacs_data.items()):
                 # Determinar color según el promedio
                 color_fondo = colors.lightgreen if data['promedio'] >= 4.0 else \
@@ -2909,7 +2909,7 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
                 
                 gac_table_data.append([
                     f"GAC {gac_num}",
-                    data['nombre'],
+                    data['descripcion'],
                     f"{data['promedio']}/5.0",
                     str(len(data['evaluaciones']))
                 ])
