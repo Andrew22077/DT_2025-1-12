@@ -155,8 +155,8 @@ def update_profesor_status(request, id):
 def actualizar_foto_profesor(request, id):
     """Actualizar solo la foto de un profesor"""
     try:
-        # Verificar que el usuario solo pueda actualizar su propia foto o sea admin
-        if not request.user.is_staff and request.user.id != id:
+        # Verificar que el usuario solo pueda actualizar su propia foto
+        if request.user.id != id:
             return Response({
                 'error': 'No tienes permisos para actualizar la foto de otro profesor'
             }, status=status.HTTP_403_FORBIDDEN)

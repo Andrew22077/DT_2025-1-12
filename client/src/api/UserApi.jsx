@@ -584,7 +584,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.get(
-        `http://3.17.149.166/api/competencias/api/materias-profesor/`,
+        `http://3.17.149.166/competencias/api/materias-profesor/`,
         {
           headers: {
             Authorization: `Token ${token}`,

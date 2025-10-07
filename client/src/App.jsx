@@ -68,7 +68,7 @@ function App() {
         <Route
           path="/student-list"
           element={
-            <ProtectedRoute requireAdmin={true}>
+            <ProtectedRoute>
               <EstudiantesListPage />
             </ProtectedRoute>
           }
