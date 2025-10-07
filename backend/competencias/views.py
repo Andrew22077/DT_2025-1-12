@@ -2990,7 +2990,7 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
         # Pie de página
         story.append(Spacer(1, 20))
         fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M")
-        pie = Paragraph(f"📅 Reporte generado el {fecha_generacion} por el Sistema de Evaluación de Competencias", estilos['pie'])
+        pie = Paragraph(f"📅 Reporte generado el {fecha_generacion} por el Sistema de Evaluación de Competencias", estilos['texto'])
         story.append(pie)
         
         # Construir PDF
