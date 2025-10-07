@@ -2878,7 +2878,7 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
             ["⭐ Promedio General:", f"{promedio_general}/5.0"]
         ]
         
-        tabla_info = Table(info_estudiante, colWidths=[2*inch, 3*inch])
+        tabla_info = Table(info_estudiante, colWidths=[2.2*inch, 2.8*inch])
         tabla_info.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (0, -1), colors.lightblue),
             ('BACKGROUND', (1, 0), (1, -1), colors.white),
@@ -2886,10 +2886,14 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
             ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('TOPPADDING', (0, 0), (-1, -1), 10),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
             ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.lightgrey, colors.white])
+            ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.lightgrey, colors.white]),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
         ]))
         story.append(tabla_info)
         story.append(Spacer(1, 20))
@@ -2914,17 +2918,22 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
                     str(len(data['evaluaciones']))
                 ])
             
-            gac_table = Table(gac_table_data, colWidths=[1*inch, 2.5*inch, 1*inch, 1.5*inch])
+            gac_table = Table(gac_table_data, colWidths=[0.8*inch, 3.2*inch, 0.8*inch, 0.8*inch])
             gac_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (1, 1), (1, -1), 'LEFT'),  # Alineación izquierda para descripción
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE')
             ]))
             story.append(gac_table)
             story.append(Spacer(1, 20))
@@ -2937,8 +2946,15 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
             
             rac_table_data = [["RAC", "Descripción", "Profesor", "Puntaje", "GACs"]]
             for rac in rac_data:
-                # Truncar descripción si es muy larga
-                descripcion = rac['descripcion'][:50] + "..." if len(rac['descripcion']) > 50 else rac['descripcion']
+                # Truncar descripción si es muy larga, manteniendo palabras completas
+                descripcion = rac['descripcion']
+                if len(descripcion) > 60:
+                    descripcion = descripcion[:60]
+                    # Buscar el último espacio para no cortar palabras
+                    ultimo_espacio = descripcion.rfind(' ')
+                    if ultimo_espacio > 40:  # Solo si no es muy corto
+                        descripcion = descripcion[:ultimo_espacio]
+                    descripcion += "..."
                 rac_table_data.append([
                     f"RAC {rac['numero']}",
                     descripcion,
@@ -2947,15 +2963,19 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
                     ", ".join([f"GAC {gac}" for gac in rac['gacs']])
                 ])
             
-            rac_table = Table(rac_table_data, colWidths=[0.8*inch, 2.2*inch, 1.5*inch, 0.8*inch, 1.2*inch])
+            rac_table = Table(rac_table_data, colWidths=[0.7*inch, 2.8*inch, 1.2*inch, 0.7*inch, 1.1*inch])
             rac_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('ALIGN', (1, 1), (1, -1), 'LEFT'),  # Alineación izquierda para descripción
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, 0), 10),
                 ('FONTSIZE', (0, 1), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
