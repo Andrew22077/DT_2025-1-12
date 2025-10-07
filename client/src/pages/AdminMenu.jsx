@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import backgroundImage from "../assets/campus-unbosque.jpg";
 import profesoresImg from "../assets/profesores.jpg";
 import estudiantesImg from "../assets/estudiantes.jpg";
+import resultadosImg from "../assets/resultados.jpg";
 import informesImg from "../assets/informes.jpg";
 import configuracionImg from "../assets/configuracion.png";
 
@@ -23,7 +24,7 @@ const menuItems = [
     link: "/informes",
   },
   {
-    image: estudiantesImg,
+    image: resultadosImg,
     label: "Resultados",
     link: "/resultados-estudiantes",
   },
