@@ -2904,29 +2904,34 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
             story.append(Paragraph("🎯 Resultados por GAC (Grupo de Área de Conocimiento)", estilos['subtitulo']))
             story.append(Spacer(1, 10))
             
-            gac_table_data = [["GAC", "Descripción del GAC", "Promedio", "Evaluaciones"]]
+            gac_table_data = [["GAC", "Descripción", "Promedio", "Evaluaciones"]]
             for gac_num, data in sorted(gacs_data.items()):
-                # Determinar color según el promedio
-                color_fondo = colors.lightgreen if data['promedio'] >= 4.0 else \
-                             colors.lightblue if data['promedio'] >= 3.0 else \
-                             colors.lightyellow if data['promedio'] >= 2.0 else colors.lightcoral
+                # Truncar descripción si es muy larga, manteniendo palabras completas
+                descripcion = data['descripcion']
+                if len(descripcion) > 45:
+                    descripcion = descripcion[:45]
+                    # Buscar el último espacio para no cortar palabras
+                    ultimo_espacio = descripcion.rfind(' ')
+                    if ultimo_espacio > 30:  # Solo si no es muy corto
+                        descripcion = descripcion[:ultimo_espacio]
+                    descripcion += "..."
                 
                 gac_table_data.append([
                     f"GAC {gac_num}",
-                    data['descripcion'],
+                    descripcion,
                     f"{data['promedio']}/5.0",
                     str(len(data['evaluaciones']))
                 ])
             
-            gac_table = Table(gac_table_data, colWidths=[0.8*inch, 3.2*inch, 0.8*inch, 0.8*inch])
+            gac_table = Table(gac_table_data, colWidths=[0.7*inch, 3.5*inch, 0.7*inch, 0.7*inch])
             gac_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('ALIGN', (1, 1), (1, -1), 'LEFT'),  # Alineación izquierda para descripción
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
                 ('TOPPADDING', (0, 0), (-1, -1), 8),
                 ('LEFTPADDING', (0, 0), (-1, -1), 6),
