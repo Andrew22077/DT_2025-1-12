@@ -2808,32 +2808,201 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
             print("No hay evaluaciones para este estudiante")
             return Response({'error': 'No hay evaluaciones para este estudiante'}, status=404)
         
-        # Crear un PDF simple para probar
-        print("Creando PDF simple...")
+        # Procesar datos por GAC y RAC
+        print("Procesando datos por GAC y RAC...")
+        gacs_data = {}
+        rac_data = []
+        
+        for evaluacion in evaluaciones:
+            # Datos por GAC
+            for gac in evaluacion.rac.gacs.all():
+                if gac.numero not in gacs_data:
+                    gacs_data[gac.numero] = {
+                        'nombre': gac.nombre,
+                        'evaluaciones': [],
+                        'promedio': 0
+                    }
+                gacs_data[gac.numero]['evaluaciones'].append(evaluacion.puntaje)
+            
+            # Datos por RAC
+            rac_data.append({
+                'numero': evaluacion.rac.numero,
+                'descripcion': evaluacion.rac.descripcion,
+                'puntaje': evaluacion.puntaje,
+                'profesor': evaluacion.profesor.nombre,
+                'gacs': [gac.numero for gac in evaluacion.rac.gacs.all()]
+            })
+        
+        # Calcular promedios por GAC
+        print("Calculando promedios por GAC...")
+        for gac_num, data in gacs_data.items():
+            if data['evaluaciones']:
+                data['promedio'] = round(sum(data['evaluaciones']) / len(data['evaluaciones']), 2)
+        
+        # Calcular promedio general
+        todos_puntajes = [eval.puntaje for eval in evaluaciones]
+        promedio_general = round(sum(todos_puntajes) / len(todos_puntajes), 2)
+        print(f"Promedio general calculado: {promedio_general}")
+        
+        # Crear PDF detallado
+        print("Creando PDF detallado...")
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*inch)
         story = []
         
-        # Título simple
-        from reportlab.lib.styles import getSampleStyleSheet
-        styles = getSampleStyleSheet()
-        title = Paragraph(f"Reporte de {estudiante.nombre}", styles['Title'])
-        story.append(title)
+        # Obtener estilos personalizados
+        print("Obteniendo estilos PDF...")
+        estilos = crear_estilos_pdf()
         
-        # Información básica
-        info = f"Grupo: {estudiante.grupo}<br/>Documento: {estudiante.documento}<br/>Total Evaluaciones: {evaluaciones.count()}"
-        story.append(Paragraph(info, styles['Normal']))
+        # Título principal
+        titulo = Paragraph(f"📊 Reporte de Resultados - {estudiante.nombre}", estilos['titulo'])
+        story.append(titulo)
+        story.append(Spacer(1, 20))
+        
+        # Información del estudiante con colores
+        info_estudiante = [
+            ["👤 Estudiante:", estudiante.nombre],
+            ["🏫 Grupo:", estudiante.grupo],
+            ["🆔 Documento:", estudiante.documento],
+            ["📝 Total Evaluaciones:", str(len(evaluaciones))],
+            ["⭐ Promedio General:", f"{promedio_general}/5.0"]
+        ]
+        
+        tabla_info = Table(info_estudiante, colWidths=[2*inch, 3*inch])
+        tabla_info.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightblue),
+            ('BACKGROUND', (1, 0), (1, -1), colors.white),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.lightgrey, colors.white])
+        ]))
+        story.append(tabla_info)
+        story.append(Spacer(1, 20))
+        
+        # Resultados por GAC con colores
+        if gacs_data:
+            print("Agregando resultados por GAC...")
+            story.append(Paragraph("🎯 Resultados por GAC (Grupo de Área de Conocimiento)", estilos['subtitulo']))
+            story.append(Spacer(1, 10))
+            
+            gac_table_data = [["GAC", "Nombre del GAC", "Promedio", "Evaluaciones"]]
+            for gac_num, data in sorted(gacs_data.items()):
+                # Determinar color según el promedio
+                color_fondo = colors.lightgreen if data['promedio'] >= 4.0 else \
+                             colors.lightblue if data['promedio'] >= 3.0 else \
+                             colors.lightyellow if data['promedio'] >= 2.0 else colors.lightcoral
+                
+                gac_table_data.append([
+                    f"GAC {gac_num}",
+                    data['nombre'],
+                    f"{data['promedio']}/5.0",
+                    str(len(data['evaluaciones']))
+                ])
+            
+            gac_table = Table(gac_table_data, colWidths=[1*inch, 2.5*inch, 1*inch, 1.5*inch])
+            gac_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 12),
+                ('FONTSIZE', (0, 1), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
+            ]))
+            story.append(gac_table)
+            story.append(Spacer(1, 20))
+        
+        # Evaluaciones detalladas por RAC con colores
+        if rac_data:
+            print("Agregando evaluaciones detalladas por RAC...")
+            story.append(Paragraph("📋 Evaluaciones Detalladas por RAC (Resultado de Aprendizaje Clave)", estilos['subtitulo']))
+            story.append(Spacer(1, 10))
+            
+            rac_table_data = [["RAC", "Descripción", "Profesor", "Puntaje", "GACs"]]
+            for rac in rac_data:
+                # Truncar descripción si es muy larga
+                descripcion = rac['descripcion'][:50] + "..." if len(rac['descripcion']) > 50 else rac['descripcion']
+                rac_table_data.append([
+                    f"RAC {rac['numero']}",
+                    descripcion,
+                    rac['profesor'],
+                    f"{rac['puntaje']}/5",
+                    ", ".join([f"GAC {gac}" for gac in rac['gacs']])
+                ])
+            
+            rac_table = Table(rac_table_data, colWidths=[0.8*inch, 2.2*inch, 1.5*inch, 0.8*inch, 1.2*inch])
+            rac_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('FONTSIZE', (0, 1), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
+            ]))
+            story.append(rac_table)
+        
+        # Resumen con colores
+        print("Agregando resumen final...")
+        story.append(Spacer(1, 20))
+        story.append(Paragraph("📈 Resumen Ejecutivo", estilos['subtitulo']))
+        
+        # Determinar color del promedio general
+        color_promedio = colors.green if promedio_general >= 4.0 else \
+                        colors.blue if promedio_general >= 3.0 else \
+                        colors.orange if promedio_general >= 2.0 else colors.red
+        
+        resumen_texto = f"""
+        <para align="center">
+        <font color="{color_promedio.hexval()}" size="14"><b>Promedio General: {promedio_general}/5.0</b></font><br/>
+        <font size="10">
+        • Total de evaluaciones realizadas: <b>{len(evaluaciones)}</b><br/>
+        • GACs evaluados: <b>{len(gacs_data)}</b><br/>
+        • RACs evaluados: <b>{len(rac_data)}</b><br/>
+        • Estado: <b>{"Excelente" if promedio_general >= 4.0 else "Bueno" if promedio_general >= 3.0 else "Regular" if promedio_general >= 2.0 else "Necesita Mejora"}</b>
+        </font>
+        </para>
+        """
+        
+        resumen = Paragraph(resumen_texto, estilos['texto'])
+        story.append(resumen)
+        
+        # Pie de página
+        story.append(Spacer(1, 20))
+        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M")
+        pie = Paragraph(f"📅 Reporte generado el {fecha_generacion} por el Sistema de Evaluación de Competencias", estilos['pie'])
+        story.append(pie)
         
         # Construir PDF
-        doc.build(story)
+        print("Construyendo PDF...")
+        try:
+            doc.build(story)
+            print("PDF construido exitosamente")
+        except Exception as e:
+            print(f"Error al construir PDF: {e}")
+            raise e
         
         # Preparar respuesta
-        buffer.seek(0)
-        response = HttpResponse(buffer.read(), content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="resultados_{estudiante.nombre.replace(" ", "_")}.pdf"'
-        
-        print("PDF simple creado exitosamente")
-        return response
+        print("Preparando respuesta...")
+        try:
+            buffer.seek(0)
+            response = HttpResponse(buffer.read(), content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="resultados_detallados_{estudiante.nombre.replace(" ", "_")}.pdf"'
+            print("Respuesta preparada exitosamente")
+            return response
+        except Exception as e:
+            print(f"Error al preparar respuesta: {e}")
+            raise e
         
     except Exception as e:
         print(f"Error generando PDF individual: {e}")
