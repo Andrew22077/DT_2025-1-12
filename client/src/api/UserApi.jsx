@@ -113,6 +113,12 @@ export const useUserApi = () => {
     try {
       setLoading(true);
       setError(null);
+      
+      console.log("=== DEBUG ACTUALIZAR FOTO API ===");
+      console.log("ID recibido:", id, "(tipo:", typeof id, ")");
+      console.log("Token:", token);
+      console.log("URL:", `http://3.17.149.166/api/profesores/${id}/foto/`);
+      
       const response = await axios.put(
         `http://3.17.149.166/api/profesores/${id}/foto/`,
         formData,
@@ -123,9 +129,13 @@ export const useUserApi = () => {
           },
         }
       );
+      console.log("Respuesta exitosa:", response.data);
       return response.data;
     } catch (error) {
       console.error("Error al actualizar foto del profesor:", error);
+      console.error("Error response:", error.response);
+      console.error("Error status:", error.response?.status);
+      console.error("Error data:", error.response?.data);
       setError(error.message);
       throw error;
     } finally {

@@ -155,25 +155,64 @@ def update_profesor_status(request, id):
 def actualizar_foto_profesor(request, id):
     """Actualizar solo la foto de un profesor"""
     try:
+        print(f"=== DEBUG actualizar_foto_profesor ===")
+        print(f"Usuario autenticado: {request.user}")
+        print(f"Usuario ID: {request.user.id} (tipo: {type(request.user.id)})")
+        print(f"ID solicitado: {id} (tipo: {type(id)})")
+        print(f"Es staff: {request.user.is_staff}")
+        print(f"Datos recibidos: {request.data}")
+        print(f"Headers: {dict(request.headers)}")
+        
+        # Convertir ID a entero para comparación
+        profesor_id = int(id)
+        user_id = int(request.user.id)
+        
         # Verificar que el usuario solo pueda actualizar su propia foto
-        if request.user.id != id:
+        if user_id != profesor_id:
+            print(f"Error: Usuario {user_id} intentando actualizar foto de usuario {profesor_id}")
             return Response({
                 'error': 'No tienes permisos para actualizar la foto de otro profesor'
             }, status=status.HTTP_403_FORBIDDEN)
         
-        profesor = Profesor.objects.get(id=id)
-    except Profesor.DoesNotExist:
-        return Response({'error': 'Profesor no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        # Verificar que el profesor existe
+        try:
+            profesor = Profesor.objects.get(id=profesor_id)
+            print(f"Profesor encontrado: {profesor}")
+        except Profesor.DoesNotExist:
+            print(f"Error: Profesor con ID {profesor_id} no encontrado")
+            return Response({'error': 'Profesor no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Verificar que el usuario es realmente un profesor
+        if not isinstance(request.user, Profesor):
+            print(f"Error: Usuario no es una instancia de Profesor")
+            return Response({
+                'error': 'Usuario no válido'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+    except (ValueError, TypeError) as e:
+        print(f"Error en conversión de tipos: {e}")
+        return Response({'error': 'ID inválido'}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        print(f"Error inesperado: {e}")
+        return Response({'error': 'Error interno del servidor'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     serializer = ProfesorFotoSerializer(profesor, data=request.data, partial=True)
     if serializer.is_valid():
-        serializer.save()
-        # Retornar el perfil completo actualizado
-        perfil_serializer = ProfesorPerfilSerializer(profesor)
-        return Response({
-            'mensaje': 'Foto actualizada correctamente',
-            'profesor': perfil_serializer.data
-        }, status=status.HTTP_200_OK)
+        print("Serializer válido, guardando...")
+        try:
+            serializer.save()
+            # Retornar el perfil completo actualizado
+            perfil_serializer = ProfesorPerfilSerializer(profesor)
+            print("Foto actualizada exitosamente")
+            return Response({
+                'mensaje': 'Foto actualizada correctamente',
+                'profesor': perfil_serializer.data
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"Error al guardar: {e}")
+            return Response({'error': f'Error al guardar la foto: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    else:
+        print(f"Errores del serializer: {serializer.errors}")
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -385,7 +424,7 @@ def actualizar_perfil_usuario(request):
 
 #Estudiantes
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def listar_estudiantes(request):
     """Listar todos los estudiantes"""
     try:

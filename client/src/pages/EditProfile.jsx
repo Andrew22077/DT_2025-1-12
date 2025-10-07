@@ -138,12 +138,26 @@ const EditProfile = () => {
 
       // Si hay una nueva foto, subirla
       if (selectedFile) {
-        console.log("Subiendo foto para usuario ID:", user.id);
+        console.log("=== DEBUG FRONTEND FOTO ===");
+        console.log("Subiendo foto para usuario ID:", user.id, "(tipo:", typeof user.id, ")");
+        console.log("Usuario completo:", user);
+        console.log("Token en localStorage:", localStorage.getItem("token"));
+        
         const formDataPhoto = new FormData();
         formDataPhoto.append("foto", selectedFile);
         console.log("FormData creado:", formDataPhoto);
-        const fotoResponse = await actualizarFoto(user.id, formDataPhoto);
-        console.log("Respuesta de subida de foto:", fotoResponse);
+        console.log("Archivo seleccionado:", selectedFile);
+        
+        try {
+          const fotoResponse = await actualizarFoto(user.id, formDataPhoto);
+          console.log("Respuesta de subida de foto:", fotoResponse);
+        } catch (error) {
+          console.error("Error detallado al subir foto:", error);
+          console.error("Error response:", error.response);
+          console.error("Error status:", error.response?.status);
+          console.error("Error data:", error.response?.data);
+          throw error; // Re-lanzar el error para que sea manejado por el catch principal
+        }
       }
 
       showMessage("Perfil actualizado exitosamente", "success");
