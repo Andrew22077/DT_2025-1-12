@@ -2784,148 +2784,45 @@ def descargar_pdf_por_profesor(request):
 def descargar_pdf_estudiante_individual(request, estudiante_id):
     """Descargar PDF detallado de un estudiante específico"""
     try:
+        print(f"=== DEBUG PDF INDIVIDUAL ===")
+        print(f"Estudiante ID solicitado: {estudiante_id}")
+        print(f"Usuario autenticado: {request.user}")
+        
         # Obtener el estudiante
         try:
             estudiante = Estudiante.objects.get(id=estudiante_id)
+            print(f"Estudiante encontrado: {estudiante.nombre}")
         except Estudiante.DoesNotExist:
+            print(f"Error: Estudiante con ID {estudiante_id} no encontrado")
             return Response({'error': 'Estudiante no encontrado'}, status=404)
         
         # Obtener evaluaciones del estudiante
+        print("Obteniendo evaluaciones del estudiante...")
         evaluaciones = Evaluacion.objects.filter(
             estudiante=estudiante
         ).select_related('profesor', 'rac', 'rac__gacs')
         
+        print(f"Total de evaluaciones encontradas: {evaluaciones.count()}")
+        
         if not evaluaciones.exists():
+            print("No hay evaluaciones para este estudiante")
             return Response({'error': 'No hay evaluaciones para este estudiante'}, status=404)
         
-        # Procesar datos por GAC y RAC
-        gacs_data = {}
-        rac_data = []
-        
-        for evaluacion in evaluaciones:
-            # Datos por GAC
-            for gac in evaluacion.rac.gacs.all():
-                if gac.numero not in gacs_data:
-                    gacs_data[gac.numero] = {
-                        'nombre': gac.nombre,
-                        'evaluaciones': [],
-                        'promedio': 0
-                    }
-                gacs_data[gac.numero]['evaluaciones'].append(evaluacion.puntaje)
-            
-            # Datos por RAC
-            rac_data.append({
-                'numero': evaluacion.rac.numero,
-                'descripcion': evaluacion.rac.descripcion,
-                'puntaje': evaluacion.puntaje,
-                'profesor': evaluacion.profesor.nombre,
-                'gacs': [gac.numero for gac in evaluacion.rac.gacs.all()]
-            })
-        
-        # Calcular promedios por GAC
-        for gac_num, data in gacs_data.items():
-            if data['evaluaciones']:
-                data['promedio'] = round(sum(data['evaluaciones']) / len(data['evaluaciones']), 2)
-        
-        # Calcular promedio general
-        todos_puntajes = [eval.puntaje for eval in evaluaciones]
-        promedio_general = round(sum(todos_puntajes) / len(todos_puntajes), 2)
-        
-        # Crear PDF
+        # Crear un PDF simple para probar
+        print("Creando PDF simple...")
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*inch)
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
         story = []
-        estilos = crear_estilos_pdf()
         
-        # Título principal
-        titulo = Paragraph(f"Reporte de Resultados - {estudiante.nombre}", estilos['titulo'])
-        story.append(titulo)
-        story.append(Spacer(1, 20))
+        # Título simple
+        from reportlab.lib.styles import getSampleStyleSheet
+        styles = getSampleStyleSheet()
+        title = Paragraph(f"Reporte de {estudiante.nombre}", styles['Title'])
+        story.append(title)
         
-        # Información del estudiante
-        info_estudiante = [
-            ["Estudiante:", estudiante.nombre],
-            ["Grupo:", estudiante.grupo],
-            ["Documento:", estudiante.documento],
-            ["Total Evaluaciones:", str(len(evaluaciones))],
-            ["Promedio General:", f"{promedio_general}/5.0"]
-        ]
-        
-        tabla_info = Table(info_estudiante, colWidths=[2*inch, 3*inch])
-        tabla_info.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (0, -1), colors.lightblue),
-            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, -1), 12),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black)
-        ]))
-        story.append(tabla_info)
-        story.append(Spacer(1, 20))
-        
-        # Resultados por GAC
-        if gacs_data:
-            story.append(Paragraph("Resultados por GAC", estilos['subtitulo']))
-            story.append(Spacer(1, 10))
-            
-            gac_table_data = [["GAC", "Nombre", "Promedio", "Evaluaciones"]]
-            for gac_num, data in sorted(gacs_data.items()):
-                gac_table_data.append([
-                    f"GAC {gac_num}",
-                    data['nombre'],
-                    f"{data['promedio']}/5.0",
-                    str(len(data['evaluaciones']))
-                ])
-            
-            gac_table = Table(gac_table_data, colWidths=[1*inch, 2.5*inch, 1*inch, 1.5*inch])
-            gac_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            story.append(gac_table)
-            story.append(Spacer(1, 20))
-        
-        # Evaluaciones detalladas por RAC
-        if rac_data:
-            story.append(Paragraph("Evaluaciones Detalladas por RAC", estilos['subtitulo']))
-            story.append(Spacer(1, 10))
-            
-            rac_table_data = [["RAC", "Descripción", "Profesor", "Puntaje", "GACs"]]
-            for rac in rac_data:
-                rac_table_data.append([
-                    f"RAC {rac['numero']}",
-                    rac['descripcion'][:50] + "..." if len(rac['descripcion']) > 50 else rac['descripcion'],
-                    rac['profesor'],
-                    f"{rac['puntaje']}/5",
-                    ", ".join([f"GAC {gac}" for gac in rac['gacs']])
-                ])
-            
-            rac_table = Table(rac_table_data, colWidths=[0.8*inch, 2.2*inch, 1.5*inch, 0.8*inch, 1.2*inch])
-            rac_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('VALIGN', (0, 0), (-1, -1), 'TOP')
-            ]))
-            story.append(rac_table)
-        
-        # Pie de página
-        story.append(Spacer(1, 20))
-        fecha_generacion = datetime.now().strftime("%d/%m/%Y %H:%M")
-        pie = Paragraph(f"Reporte generado el {fecha_generacion}", estilos['pie'])
-        story.append(pie)
+        # Información básica
+        info = f"Grupo: {estudiante.grupo}<br/>Documento: {estudiante.documento}<br/>Total Evaluaciones: {evaluaciones.count()}"
+        story.append(Paragraph(info, styles['Normal']))
         
         # Construir PDF
         doc.build(story)
@@ -2935,10 +2832,13 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
         response = HttpResponse(buffer.read(), content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="resultados_{estudiante.nombre.replace(" ", "_")}.pdf"'
         
+        print("PDF simple creado exitosamente")
         return response
         
     except Exception as e:
         print(f"Error generando PDF individual: {e}")
+        import traceback
+        print(f"Traceback completo: {traceback.format_exc()}")
         return Response({'error': f'Error al generar PDF: {str(e)}'}, status=500)
 
 @api_view(['GET'])

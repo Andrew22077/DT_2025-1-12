@@ -5,12 +5,13 @@ import backgroundImage from "../assets/campus-unbosque.jpg";
 import estudiantesImg from "../assets/estudiantes.jpg";
 import informesImg from "../assets/informes.jpg";
 import configuracionImg from "../assets/configuracion.png";
+import evaluarImg from "../assets/evaluar.jpg";
 
 const menuItems = [
   { label: "Estudiantes", image: estudiantesImg, link: "/student-list" },
   { label: "Resultados", image: informesImg, link: "/resultados-estudiantes" },
   { label: "Editar Perfil", image: configuracionImg, link: "/editar-perfil" },
-  { label: "Evaluar", image: informesImg, link: "/evaluacion-estudiantes" }, // Usando la misma imagen por ahora
+  { label: "Evaluar", image: evaluarImg, link: "/evaluacion-estudiantes" },
 ];
 
 export default function TeacherMenu() {
