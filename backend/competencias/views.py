@@ -2784,6 +2784,16 @@ def descargar_pdf_por_profesor(request):
 def descargar_pdf_estudiante_individual(request, estudiante_id):
     """Descargar PDF detallado de un estudiante específico"""
     try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        from django.http import HttpResponse
+        from datetime import datetime
+        
         print(f"=== DEBUG PDF INDIVIDUAL ===")
         print(f"Estudiante ID solicitado: {estudiante_id}")
         print(f"Usuario autenticado: {request.user}")
@@ -2846,7 +2856,7 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
         
         # Crear PDF detallado
         print("Creando PDF detallado...")
-        buffer = io.BytesIO()
+        buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*inch)
         story = []
         
