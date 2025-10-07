@@ -1638,7 +1638,7 @@ def debug_datos(request):
         total_materias = Materia.objects.count()
         
         # Obtener algunos ejemplos
-        evaluaciones_ejemplo = list(Evaluacion.objects.select_related('estudiante', 'profesor', 'rac__gacs').values(
+        evaluaciones_ejemplo = list(Evaluacion.objects.select_related('estudiante', 'profesor', 'rac').prefetch_related('rac__gacs').values(
             'id', 'puntaje', 'estudiante__nombre', 'estudiante__grupo', 
             'profesor__nombre', 'rac__numero', 'rac__gacs__numero'
         )[:5])
@@ -2810,7 +2810,7 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
         print("Obteniendo evaluaciones del estudiante...")
         evaluaciones = Evaluacion.objects.filter(
             estudiante=estudiante
-        ).select_related('profesor', 'rac', 'rac__gacs')
+        ).select_related('profesor', 'rac').prefetch_related('rac__gacs')
         
         print(f"Total de evaluaciones encontradas: {evaluaciones.count()}")
         
