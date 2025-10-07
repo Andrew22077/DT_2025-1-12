@@ -7,6 +7,7 @@ import {
   FaSearch,
   FaEye,
   FaUsers,
+  FaDownload,
 } from "react-icons/fa";
 import toast from "react-hot-toast";
 import {
@@ -94,6 +95,20 @@ const ResultadosEstudiantesPage = () => {
       );
     } finally {
       setCargandoResultados(false);
+    }
+  };
+
+  const handleDescargarPDF = async () => {
+    if (!estudianteSeleccionado) {
+      toast.error("Por favor selecciona un estudiante primero");
+      return;
+    }
+
+    try {
+      await evaluacionApi.descargarPDFEstudianteIndividual(estudianteSeleccionado.id);
+      toast.success("PDF descargado exitosamente");
+    } catch (error) {
+      toast.error("Error al descargar PDF: " + error.message);
     }
   };
 
@@ -387,6 +402,15 @@ const ResultadosEstudiantesPage = () => {
                       📚 Estudiante de segundo semestre - Mostrando resultados de ambos semestres
                     </p>
                   )}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleDescargarPDF}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                  >
+                    <FaDownload className="w-4 h-4" />
+                    Descargar PDF
+                  </button>
                 </div>
               </div>
             </div>
