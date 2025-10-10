@@ -15,9 +15,12 @@ export const usePeriodosAcademicos = () => {
       setLoading(true);
       setError(null);
       
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Token no encontrado');
+      
       const response = await fetch('/competencias/api/periodos/', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Token ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -47,9 +50,12 @@ export const usePeriodosAcademicos = () => {
       setLoading(true);
       setError(null);
       
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Token no encontrado');
+      
       const response = await fetch('/competencias/api/periodos/actual/', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Token ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -75,10 +81,13 @@ export const usePeriodosAcademicos = () => {
       setLoading(true);
       setError(null);
       
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Token no encontrado');
+      
       const response = await fetch('/competencias/api/periodos/crear/', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Token ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(datosPeriodo)

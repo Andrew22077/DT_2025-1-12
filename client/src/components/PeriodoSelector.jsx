@@ -24,9 +24,12 @@ const PeriodoSelector = ({
   const cargarPeriodoActual = async () => {
     try {
       setLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Token no encontrado');
+      
       const response = await fetch('/competencias/api/periodos/actual/', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Authorization': `Token ${token}`,
           'Content-Type': 'application/json'
         }
       });
