@@ -25,6 +25,12 @@ import {
   Line,
 } from "recharts";
 import toast from "react-hot-toast";
+import { 
+  getColorByPuntaje, 
+  formatearCalificacion, 
+  convertirCalificacionCualitativa,
+  getSemaforoColor 
+} from "../utils/gradeUtils";
 
 const Informes = () => {
   const { user } = useAuth();
@@ -305,12 +311,7 @@ const Informes = () => {
     }
   };
 
-  const getColorByPuntaje = (promedio) => {
-    if (promedio >= 4.0) return "text-green-600";
-    if (promedio >= 3.0) return "text-blue-600";
-    if (promedio >= 2.0) return "text-yellow-600";
-    return "text-red-600";
-  };
+  // La función getColorByPuntaje ahora se importa desde gradeUtils.js
 
   // Función para renderizar resultados por semestre en la tabla
   const renderResultadosSemestreTabla = (estudiante) => {
@@ -347,9 +348,14 @@ const Informes = () => {
         <div className="bg-blue-50 rounded-lg p-3">
           <div className="flex justify-between items-center mb-1">
             <span className="text-xs font-medium text-blue-800">1er Semestre</span>
-            <span className={`text-sm font-bold ${getColorByPuntaje(primerSem?.resumen_general?.promedio_general || 0)}`}>
-              {primerSem?.resumen_general?.promedio_general?.toFixed(2) || "0.00"}
-            </span>
+                            <div className="text-right">
+                              <span className={`text-sm font-bold ${getColorByPuntaje(primerSem?.resumen_general?.promedio_general || 0)}`}>
+                                {primerSem?.resumen_general?.promedio_general?.toFixed(2) || "0.00"}
+                              </span>
+                              <div className="text-xs text-gray-600">
+                                {convertirCalificacionCualitativa(primerSem?.resumen_general?.promedio_general || 0)}
+                              </div>
+                            </div>
           </div>
           <div className="text-xs text-blue-600">
             {primerSem?.resumen_general?.total_evaluaciones || 0} evaluaciones
@@ -374,9 +380,14 @@ const Informes = () => {
           <div className="bg-green-50 rounded-lg p-3">
             <div className="flex justify-between items-center mb-1">
               <span className="text-xs font-medium text-green-800">2do Semestre</span>
-              <span className={`text-sm font-bold ${getColorByPuntaje(segundoSem?.resumen_general?.promedio_general || 0)}`}>
-                {segundoSem?.resumen_general?.promedio_general?.toFixed(2) || "0.00"}
-              </span>
+              <div className="text-right">
+                <span className={`text-sm font-bold ${getColorByPuntaje(segundoSem?.resumen_general?.promedio_general || 0)}`}>
+                  {segundoSem?.resumen_general?.promedio_general?.toFixed(2) || "0.00"}
+                </span>
+                <div className="text-xs text-gray-600">
+                  {convertirCalificacionCualitativa(segundoSem?.resumen_general?.promedio_general || 0)}
+                </div>
+              </div>
             </div>
             <div className="text-xs text-green-600">
               {segundoSem?.resumen_general?.total_evaluaciones || 0} evaluaciones
@@ -675,12 +686,17 @@ const Informes = () => {
                 </div>
                 <div className="bg-purple-50 rounded-lg p-6 text-center shadow-md">
                   <FaGraduationCap className="text-3xl text-purple-600 mx-auto mb-2" />
-                  <div
-                    className={`text-2xl font-bold ${getColorByPuntaje(
-                      resumen_general.promedio_general
-                    )}`}
-                  >
-                    {resumen_general.promedio_general?.toFixed(2) || "0.00"}
+                  <div className="text-center">
+                    <div
+                      className={`text-2xl font-bold ${getColorByPuntaje(
+                        resumen_general.promedio_general
+                      )}`}
+                    >
+                      {resumen_general.promedio_general?.toFixed(2) || "0.00"}
+                    </div>
+                    <div className="text-sm text-gray-600 mt-1">
+                      {convertirCalificacionCualitativa(resumen_general.promedio_general || 0)}
+                    </div>
                   </div>
                   <div className="text-sm text-purple-800">Promedio General</div>
                 </div>
@@ -1126,13 +1142,18 @@ const Informes = () => {
                                     {estudiante.estudiante_grupo}
                                   </td>
                                   <td className="px-4 py-2">
-                                    <span
-                                      className={`font-semibold ${getColorByPuntaje(
-                                        estudiante.promedio
-                                      )}`}
-                                    >
-                                      {estudiante.promedio}
-                                    </span>
+                                    <div className="text-center">
+                                      <span
+                                        className={`font-semibold block ${getColorByPuntaje(
+                                          estudiante.promedio
+                                        )}`}
+                                      >
+                                        {estudiante.promedio}
+                                      </span>
+                                      <span className="text-xs text-gray-600">
+                                        {convertirCalificacionCualitativa(estudiante.promedio)}
+                                      </span>
+                                    </div>
                                   </td>
                                   <td className="px-4 py-2">
                                     {estudiante.total_evaluaciones}
@@ -1184,9 +1205,14 @@ const Informes = () => {
                             </div>
                             <div>
                               <p className="text-sm text-gray-600">Promedio General:</p>
-                              <p className={`font-bold text-lg ${getColorByPuntaje(estudianteSeleccionado.promedio)}`}>
-                                {estudianteSeleccionado.promedio}
-                              </p>
+                              <div className="text-center">
+                                <p className={`font-bold text-lg ${getColorByPuntaje(estudianteSeleccionado.promedio)}`}>
+                                  {estudianteSeleccionado.promedio}
+                                </p>
+                                <p className="text-sm text-gray-600">
+                                  {convertirCalificacionCualitativa(estudianteSeleccionado.promedio)}
+                                </p>
+                              </div>
                             </div>
                             <div>
                               <p className="text-sm text-gray-600">Total Evaluaciones:</p>
@@ -1311,9 +1337,9 @@ const Informes = () => {
                           <div className="flex items-center space-x-2">
                             <FaCircle
                               className={`text-sm ${
-                                item.color_semaforo === "rojo"
+                                getSemaforoColor(item.promedio) === "red"
                                   ? "text-red-500"
-                                  : item.color_semaforo === "amarillo"
+                                  : getSemaforoColor(item.promedio) === "yellow"
                                   ? "text-yellow-500"
                                   : "text-green-500"
                               }`}

@@ -9,6 +9,7 @@ import {
   FaRandom,
 } from "react-icons/fa";
 import toast from "react-hot-toast";
+import { convertirCalificacionCualitativa } from "../utils/gradeUtils";
 
 const EvaluacionEstudiantesPage = () => {
   const { user } = useAuth();
@@ -346,10 +347,10 @@ const EvaluacionEstudiantesPage = () => {
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                               >
                                 <option value="">-- Seleccione --</option>
-                                <option value="1">1 - Insuficiente</option>
-                                <option value="2">2 - Básico</option>
-                                <option value="3">3 - Satisfactorio</option>
-                                <option value="4">4 - Bueno</option>
+                                <option value="1">1 - Reprobado</option>
+                                <option value="2">2 - Deficiente</option>
+                                <option value="3">3 - Insuficiente</option>
+                                <option value="4">4 - Notable</option>
                                 <option value="5">5 - Excelente</option>
                               </select>
                             </div>

@@ -23,6 +23,12 @@ import {
   Cell,
   ResponsiveContainer,
 } from "recharts";
+import { 
+  getColorByPuntaje, 
+  formatearCalificacion, 
+  convertirCalificacionCualitativa,
+  getSemaforoColor 
+} from "../utils/gradeUtils";
 
 const ResultadosEstudiantesPage = () => {
   const { user } = useAuth();
@@ -112,24 +118,33 @@ const ResultadosEstudiantesPage = () => {
     }
   };
 
-  const getColorByPuntaje = (promedio) => {
-    if (promedio >= 4.0) return "text-green-600 bg-green-50";
-    if (promedio >= 3.0) return "text-blue-600 bg-blue-50";
-    if (promedio >= 2.0) return "text-yellow-600 bg-yellow-50";
-    return "text-red-600 bg-red-50";
-  };
-
+  // Las funciones getColorByPuntaje ahora se importan desde gradeUtils.js
+  
   const getColorByPuntajeIndividual = (puntaje) => {
-    if (puntaje >= 4) return "text-green-600";
-    if (puntaje >= 3) return "text-blue-600";
-    if (puntaje >= 2) return "text-yellow-600";
-    return "text-red-600";
+    return getColorByPuntaje(puntaje);
   };
 
   const getEstadoEvaluacion = (puntaje) => {
-    if (puntaje >= 3)
-      return { texto: "Aprobado", color: "text-green-600", bg: "bg-green-100" };
-    return { texto: "Reprobado", color: "text-red-600", bg: "bg-red-100" };
+    const cualitativa = convertirCalificacionCualitativa(puntaje);
+    if (puntaje >= 3.5) {
+      return { 
+        texto: cualitativa, 
+        color: "text-green-600", 
+        bg: "bg-green-100" 
+      };
+    } else if (puntaje >= 3.0) {
+      return { 
+        texto: cualitativa, 
+        color: "text-yellow-600", 
+        bg: "bg-yellow-100" 
+      };
+    } else {
+      return { 
+        texto: cualitativa, 
+        color: "text-red-600", 
+        bg: "bg-red-100" 
+      };
+    }
   };
 
   // Función para renderizar los resultados de un semestre específico
@@ -164,12 +179,17 @@ const ResultadosEstudiantesPage = () => {
               </h4>
             </div>
             <div className="text-right">
-              <div
-                className={`text-2xl font-bold px-4 py-2 rounded-lg ${getColorByPuntaje(
-                  datosSemestre.resumen_general.promedio_general || 0
-                )}`}
-              >
-                {datosSemestre.resumen_general.promedio_general?.toFixed(2) || "0.00"}
+              <div className="text-center">
+                <div
+                  className={`text-2xl font-bold px-4 py-2 rounded-lg ${getColorByPuntaje(
+                    datosSemestre.resumen_general.promedio_general || 0
+                  )}`}
+                >
+                  {datosSemestre.resumen_general.promedio_general?.toFixed(2) || "0.00"}
+                </div>
+                <div className="text-sm text-gray-600 mt-1">
+                  {convertirCalificacionCualitativa(datosSemestre.resumen_general.promedio_general || 0)}
+                </div>
               </div>
               <p className="text-sm text-gray-600 mt-1">Promedio General</p>
             </div>
@@ -443,14 +463,19 @@ const ResultadosEstudiantesPage = () => {
                         </h3>
                       </div>
                       <div className="text-right">
-                        <div
-                          className={`text-3xl font-bold px-4 py-2 rounded-lg ${getColorByPuntaje(
-                            resultadosEstudiante.resumen_general.promedio_general || 0
-                          )}`}
-                        >
-                          {resultadosEstudiante.resumen_general.promedio_general?.toFixed(
-                            2
-                          ) || "0.00"}
+                        <div className="text-center">
+                          <div
+                            className={`text-3xl font-bold px-4 py-2 rounded-lg ${getColorByPuntaje(
+                              resultadosEstudiante.resumen_general.promedio_general || 0
+                            )}`}
+                          >
+                            {resultadosEstudiante.resumen_general.promedio_general?.toFixed(
+                              2
+                            ) || "0.00"}
+                          </div>
+                          <div className="text-sm text-gray-600 mt-1">
+                            {convertirCalificacionCualitativa(resultadosEstudiante.resumen_general.promedio_general || 0)}
+                          </div>
                         </div>
                         <p className="text-sm text-gray-600 mt-1">Promedio General</p>
                       </div>
