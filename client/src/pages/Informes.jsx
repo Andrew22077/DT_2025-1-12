@@ -49,6 +49,7 @@ const Informes = () => {
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState(null);
   const [mostrarModalProfesor, setMostrarModalProfesor] = useState(false);
   const [profesorSeleccionado, setProfesorSeleccionado] = useState(null);
+  const [filtroBusquedaEstudiante, setFiltroBusquedaEstudiante] = useState("");
 
   // Nuevos estados para las nuevas funcionalidades
   const [gacsSemestre, setGacsSemestre] = useState(null);
@@ -1560,38 +1561,31 @@ const Informes = () => {
                   </div>
                 </div>
 
-                {/* Gráfico de barras */}
-                <div className="bg-white rounded-lg shadow-md p-6">
-                  <h3 className="text-xl font-semibold text-gray-800 mb-4">
-                    Distribución de Promedios
-                  </h3>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart
-                      data={estudiantesProfesores.estudiantes_profesores.slice(
-                        0,
-                        20
-                      )}
-                    >
-                      <XAxis
-                        dataKey="estudiante_nombre"
-                        angle={-45}
-                        textAnchor="end"
-                        height={100}
-                      />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="promedio" fill="#F59E0B" name="Promedio" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
 
                 {/* Tabla de estudiantes */}
                 <div className="bg-white rounded-lg shadow-md overflow-hidden">
                   <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      Lista de Estudiantes
-                    </h3>
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-semibold text-gray-800">
+                        Lista de Estudiantes
+                      </h3>
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Buscar estudiante..."
+                            value={filtroBusquedaEstudiante}
+                            onChange={(e) => setFiltroBusquedaEstudiante(e.target.value)}
+                            className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                          />
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="overflow-x-auto">
@@ -1619,8 +1613,12 @@ const Informes = () => {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {estudiantesProfesores.estudiantes_profesores.map(
-                          (estudiante, index) => (
+                        {estudiantesProfesores.estudiantes_profesores
+                          .filter(estudiante => 
+                            estudiante.estudiante_nombre.toLowerCase().includes(filtroBusquedaEstudiante.toLowerCase()) ||
+                            estudiante.estudiante_grupo.toLowerCase().includes(filtroBusquedaEstudiante.toLowerCase())
+                          )
+                          .map((estudiante, index) => (
                             <tr key={index} className="hover:bg-gray-50">
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="text-sm font-medium text-gray-900">

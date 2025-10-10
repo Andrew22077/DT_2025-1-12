@@ -22,6 +22,10 @@ import {
   Pie,
   Cell,
   ResponsiveContainer,
+  ScatterChart,
+  Scatter,
+  LineChart,
+  Line,
 } from "recharts";
 import { 
   getColorByPuntaje, 
@@ -43,6 +47,69 @@ const ResultadosEstudiantesPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#845EC2"];
+
+  // Función para generar datos del diagrama de dispersión de evolución
+  const generarDatosEvolucion = (resultadosPorSemestre) => {
+    if (!resultadosPorSemestre || !resultadosPorSemestre.primer_semestre || !resultadosPorSemestre.segundo_semestre) {
+      return [];
+    }
+
+    const datos = [];
+    
+    // Agregar datos del primer semestre
+    if (resultadosPorSemestre.primer_semestre.grafico_profesores) {
+      resultadosPorSemestre.primer_semestre.grafico_profesores.forEach((profesor, index) => {
+        datos.push({
+          x: index + 1,
+          y: profesor.promedio,
+          semestre: 'Primer Semestre',
+          profesor: profesor.profesor,
+          evaluaciones: profesor.evaluaciones || 0,
+          color: '#3B82F6' // Azul para primer semestre
+        });
+      });
+    }
+
+    // Agregar datos del segundo semestre
+    if (resultadosPorSemestre.segundo_semestre.grafico_profesores) {
+      resultadosPorSemestre.segundo_semestre.grafico_profesores.forEach((profesor, index) => {
+        datos.push({
+          x: index + 1,
+          y: profesor.promedio,
+          semestre: 'Segundo Semestre',
+          profesor: profesor.profesor,
+          evaluaciones: profesor.evaluaciones || 0,
+          color: '#10B981' // Verde para segundo semestre
+        });
+      });
+    }
+
+    return datos;
+  };
+
+  // Función para generar datos de evolución temporal
+  const generarDatosTemporal = (resultadosPorSemestre) => {
+    if (!resultadosPorSemestre || !resultadosPorSemestre.primer_semestre || !resultadosPorSemestre.segundo_semestre) {
+      return [];
+    }
+
+    const datos = [
+      {
+        semestre: '1er Semestre',
+        promedio: resultadosPorSemestre.primer_semestre.promedio_general,
+        evaluaciones: resultadosPorSemestre.primer_semestre.total_evaluaciones,
+        estudiantes: resultadosPorSemestre.primer_semestre.total_estudiantes
+      },
+      {
+        semestre: '2do Semestre',
+        promedio: resultadosPorSemestre.segundo_semestre.promedio_general,
+        evaluaciones: resultadosPorSemestre.segundo_semestre.total_evaluaciones,
+        estudiantes: resultadosPorSemestre.segundo_semestre.total_estudiantes
+      }
+    ];
+
+    return datos;
+  };
 
   // Función para detectar si un estudiante pertenece a segundo semestre
   const esSegundoSemestre = (grupo) => {
@@ -262,6 +329,100 @@ const ResultadosEstudiantesPage = () => {
                 <Tooltip />
                 <Legend />
               </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Diagrama de evolución entre semestres */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h4 className="text-lg font-semibold text-gray-800 mb-4">
+              Evolución de Calificaciones por Profesor
+            </h4>
+            <ResponsiveContainer width="100%" height={350}>
+              <ScatterChart data={generarDatosEvolucion(resultadosPorSemestre)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="x" 
+                  name="Profesor"
+                  label={{ value: 'Profesor (Orden)', position: 'insideBottom', offset: -5 }}
+                />
+                <YAxis 
+                  dataKey="y" 
+                  name="Promedio"
+                  domain={[0, 5]}
+                  label={{ value: 'Promedio', angle: -90, position: 'insideLeft' }}
+                />
+                <Tooltip 
+                  cursor={{ strokeDasharray: '3 3' }}
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
+                          <p className="font-semibold">{data.profesor}</p>
+                          <p className="text-sm text-gray-600">{data.semestre}</p>
+                          <p className="text-sm">Promedio: <span className="font-medium">{data.y}</span></p>
+                          <p className="text-sm">Evaluaciones: <span className="font-medium">{data.evaluaciones}</span></p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Legend />
+                <Scatter 
+                  dataKey="y" 
+                  fill="#8884d8" 
+                  name="Primer Semestre"
+                  data={generarDatosEvolucion(resultadosPorSemestre).filter(d => d.semestre === 'Primer Semestre')}
+                />
+                <Scatter 
+                  dataKey="y" 
+                  fill="#82ca9d" 
+                  name="Segundo Semestre"
+                  data={generarDatosEvolucion(resultadosPorSemestre).filter(d => d.semestre === 'Segundo Semestre')}
+                />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h4 className="text-lg font-semibold text-gray-800 mb-4">
+              Evolución Temporal del Rendimiento
+            </h4>
+            <ResponsiveContainer width="100%" height={350}>
+              <LineChart data={generarDatosTemporal(resultadosPorSemestre)}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="semestre" />
+                <YAxis domain={[0, 5]} />
+                <Tooltip 
+                  content={({ active, payload, label }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
+                          <p className="font-semibold">{label}</p>
+                          <p className="text-sm">Promedio: <span className="font-medium text-blue-600">{data.promedio}</span></p>
+                          <p className="text-sm">Evaluaciones: <span className="font-medium">{data.evaluaciones}</span></p>
+                          <p className="text-sm">Estudiantes: <span className="font-medium">{data.estudiantes}</span></p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="promedio" 
+                  stroke="#2563eb" 
+                  strokeWidth={3}
+                  dot={{ fill: '#2563eb', strokeWidth: 2, r: 6 }}
+                  activeDot={{ r: 8, stroke: '#2563eb', strokeWidth: 2 }}
+                  name="Promedio General"
+                />
+              </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
