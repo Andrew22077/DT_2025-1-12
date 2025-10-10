@@ -25,7 +25,7 @@ export const convertirCalificacionCualitativa = (calificacion) => {
     return 'Aprobado';
   } else if (calificacionRedondeada >= 3.0) {
     return 'Insuficiente';
-  } else if (calificacionRedondeada >= 2.0) {
+  } else if (calificacionRedondeada >= 1.0) {
     return 'Deficiente';
   } else {
     return 'Reprobado';

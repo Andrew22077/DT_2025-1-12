@@ -151,17 +151,17 @@ def crear_o_actualizar_evaluacion(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validar que el puntaje esté entre 1 y 5
+        # Validar que el puntaje esté entre 0 y 5
         try:
             puntaje_int = int(puntaje)
-            if not (1 <= puntaje_int <= 5):
+            if not (0 <= puntaje_int <= 5):
                 return Response(
-                    {'error': 'El puntaje debe estar entre 1 y 5'}, 
+                    {'error': 'El puntaje debe estar entre 0 y 5'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
         except (ValueError, TypeError):
             return Response(
-                {'error': 'El puntaje debe ser un número entero entre 1 y 5'}, 
+                {'error': 'El puntaje debe ser un número entero entre 0 y 5'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -253,19 +253,19 @@ def crear_evaluaciones_masivas(request):
                 })
                 continue
 
-            # Validar puntaje (1-5)
+            # Validar puntaje (0-5)
             try:
                 puntaje_int = int(puntaje)
-                if not (1 <= puntaje_int <= 5):
+                if not (0 <= puntaje_int <= 5):
                     resultados.append({
                         'rac_id': rac_id,
-                        'error': f'El puntaje debe estar entre 1 y 5 (recibido: {puntaje})'
+                        'error': f'El puntaje debe estar entre 0 y 5 (recibido: {puntaje})'
                     })
                     continue
             except (ValueError, TypeError):
                 resultados.append({
                     'rac_id': rac_id,
-                    'error': f'El puntaje debe ser un número entero entre 1 y 5 (recibido: {puntaje})'
+                    'error': f'El puntaje debe ser un número entero entre 0 y 5 (recibido: {puntaje})'
                 })
                 continue
 

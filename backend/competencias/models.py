@@ -82,10 +82,11 @@ class Evaluacion(models.Model):
     )
     puntaje = models.IntegerField(
         choices=[
-            (1, '1 - Insuficiente'),
-            (2, '2 - Básico'),
-            (3, '3 - Satisfactorio'),
-            (4, '4 - Bueno'),
+            (0, '0 - Reprobado'),
+            (1, '1 - Deficiente'),
+            (2, '2 - Deficiente'),
+            (3, '3 - Insuficiente'),
+            (4, '4 - Notable'),
             (5, '5 - Excelente')
         ],
         verbose_name="Puntaje de evaluación"
@@ -119,10 +120,10 @@ class Evaluacion(models.Model):
                 'estudiante': 'Solo se pueden evaluar estudiantes matriculados'
             })
         
-        # Validar que el puntaje esté en el rango correcto (1-5)
-        if self.puntaje and (self.puntaje < 1 or self.puntaje > 5):
+        # Validar que el puntaje esté en el rango correcto (0-5)
+        if self.puntaje is not None and (self.puntaje < 0 or self.puntaje > 5):
             raise ValidationError({
-                'puntaje': 'El puntaje debe estar entre 1 y 5'
+                'puntaje': 'El puntaje debe estar entre 0 y 5'
             })
 
     def save(self, *args, **kwargs):
