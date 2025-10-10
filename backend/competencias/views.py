@@ -20,6 +20,11 @@ from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from datetime import datetime
 import io
+from django.utils import timezone
+from io import BytesIO
+
+# Configurar logger
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 
@@ -3323,15 +3328,14 @@ def descargar_informe_profesor_individual(request, profesor_id):
 def generar_pdf_informe_profesor(datos_informe):
     """Generar PDF del informe individual de profesor"""
     try:
-        from io import BytesIO
-        from datetime import datetime
-        
         # Crear buffer para el PDF
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*inch)
         
-        # Estilos
+        # Estilos básicos
         styles = getSampleStyleSheet()
+        
+        # Crear estilos personalizados
         title_style = ParagraphStyle(
             'CustomTitle',
             parent=styles['Heading1'],
@@ -3349,9 +3353,6 @@ def generar_pdf_informe_profesor(datos_informe):
             textColor=colors.darkblue
         )
         
-        normal_style = styles['Normal']
-        normal_style.fontSize = 10
-        
         # Lista de elementos del PDF
         story = []
         
@@ -3361,14 +3362,18 @@ def generar_pdf_informe_profesor(datos_informe):
         
         # Información del profesor
         profesor = datos_informe['profesor']
-        periodo = datos_informe['periodo']
+        periodo = datos_informe.get('periodo')
         
+        # Información básica del profesor
         info_profesor = [
-            ['Profesor:', profesor.nombre],
-            ['Correo:', profesor.correo],
-            ['Período Académico:', f"{periodo.codigo} - {periodo.nombre}"],
-            ['Fecha de Generación:', datetime.now().strftime("%d/%m/%Y %H:%M")]
+            ['Profesor:', str(profesor.nombre)],
+            ['Correo:', str(profesor.correo)],
         ]
+        
+        if periodo:
+            info_profesor.append(['Período Académico:', f"{periodo.codigo} - {periodo.nombre}"])
+        
+        info_profesor.append(['Fecha de Generación:', datetime.now().strftime("%d/%m/%Y %H:%M")])
         
         tabla_info = Table(info_profesor, colWidths=[2*inch, 4*inch])
         tabla_info.setStyle(TableStyle([
@@ -3451,57 +3456,24 @@ def generar_pdf_informe_profesor(datos_informe):
         story.append(tabla_puntajes)
         story.append(Spacer(1, 20))
         
-        # Estadísticas por materia
-        if datos_informe['materias']:
-            story.append(Paragraph("ESTADÍSTICAS POR MATERIA", subtitle_style))
+        # Detalle por estudiante (simplificado)
+        if datos_informe.get('estudiantes'):
+            story.append(Paragraph("DETALLE POR ESTUDIANTE", subtitle_style))
             
-            materias_data = [['Materia', 'Estudiantes', 'Evaluaciones', 'Promedio']]
-            for materia_key, data in datos_informe['materias'].items():
-                materias_data.append([
-                    data['materia'].nombre,
-                    str(data['total_estudiantes']),
-                    str(data['total_evaluaciones']),
-                    f"{data['promedio']:.2f}"
+            estudiantes_data = [['Estudiante', 'Grupo', 'Promedio', 'Evaluaciones']]
+            for estudiante_id, data in list(datos_informe['estudiantes'].items())[:15]:  # Limitar a 15 estudiantes
+                estudiante = data['estudiante']
+                estudiantes_data.append([
+                    str(estudiante.nombre)[:30],  # Truncar nombre largo
+                    str(estudiante.grupo),
+                    f"{data['promedio']:.2f}",
+                    str(data['total_evaluaciones'])
                 ])
             
-            tabla_materias = Table(materias_data, colWidths=[3*inch, 1.5*inch, 1.5*inch, 1*inch])
-            tabla_materias.setStyle(TableStyle([
+            tabla_estudiantes = Table(estudiantes_data, colWidths=[2.5*inch, 1*inch, 1*inch, 1.5*inch])
+            tabla_estudiantes.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
-                ('BACKGROUND', (1, 1), (-1, -1), colors.white),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black)
-            ]))
-            
-            story.append(tabla_materias)
-            story.append(Spacer(1, 20))
-        
-        # Detalle por estudiante
-        story.append(Paragraph("DETALLE POR ESTUDIANTE", subtitle_style))
-        
-        for estudiante_id, data in list(datos_informe['estudiantes'].items())[:10]:  # Limitar a 10 estudiantes por página
-            estudiante = data['estudiante']
-            
-            # Información del estudiante
-            story.append(Paragraph(f"<b>Estudiante:</b> {estudiante.nombre} (Grupo: {estudiante.grupo})", normal_style))
-            story.append(Paragraph(f"Promedio: {data['promedio']:.2f} | Evaluaciones: {data['total_evaluaciones']}", normal_style))
-            
-            # Evaluaciones del estudiante
-            eval_data = [['RAC', 'Descripción', 'Puntaje', 'Fecha']]
-            for evaluacion in data['evaluaciones']:
-                eval_data.append([
-                    f"RAC {evaluacion.rac.numero}",
-                    evaluacion.rac.descripcion[:50] + "..." if len(evaluacion.rac.descripcion) > 50 else evaluacion.rac.descripcion,
-                    str(evaluacion.puntaje),
-                    evaluacion.fecha.strftime("%d/%m/%Y")
-                ])
-            
-            tabla_eval = Table(eval_data, colWidths=[0.8*inch, 3*inch, 0.8*inch, 1*inch])
-            tabla_eval.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
@@ -3510,12 +3482,7 @@ def generar_pdf_informe_profesor(datos_informe):
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             
-            story.append(tabla_eval)
-            story.append(Spacer(1, 15))
-        
-        # Nota sobre más estudiantes
-        if len(datos_informe['estudiantes']) > 10:
-            story.append(Paragraph(f"<i>Nota: Se muestran los primeros 10 estudiantes de {len(datos_informe['estudiantes'])} totales.</i>", normal_style))
+            story.append(tabla_estudiantes)
         
         # Construir PDF
         doc.build(story)
@@ -3523,10 +3490,12 @@ def generar_pdf_informe_profesor(datos_informe):
         
         # Crear respuesta HTTP
         response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="informe_profesor_{profesor.nombre.replace(" ", "_")}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        filename = f"informe_profesor_{profesor.nombre.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
         
         return response
         
     except Exception as e:
         logger.error(f"Error generando PDF de informe de profesor: {str(e)}")
-        return Response({'error': f'Error generando PDF: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # Devolver respuesta de error en lugar de Response de DRF
+        return HttpResponse(f'Error generando PDF: {str(e)}', content_type='text/plain', status=500)
