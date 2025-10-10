@@ -351,6 +351,7 @@ const EvaluacionEstudiantesPage = () => {
                                 <option value="1">1 - Deficiente</option>
                                 <option value="2">2 - Deficiente</option>
                                 <option value="3">3 - Insuficiente</option>
+                                <option value="3.5">3.5 - Aprobado</option>
                                 <option value="4">4 - Notable</option>
                                 <option value="5">5 - Excelente</option>
                               </select>

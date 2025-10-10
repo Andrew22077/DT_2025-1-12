@@ -151,17 +151,18 @@ def crear_o_actualizar_evaluacion(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validar que el puntaje esté entre 0 y 5
+        # Validar que el puntaje sea un valor válido
         try:
-            puntaje_int = int(puntaje)
-            if not (0 <= puntaje_int <= 5):
+            puntaje_float = float(puntaje)
+            valid_puntajes = [0.0, 1.0, 2.0, 3.0, 3.5, 4.0, 5.0]
+            if puntaje_float not in valid_puntajes:
                 return Response(
-                    {'error': 'El puntaje debe estar entre 0 y 5'}, 
+                    {'error': 'El puntaje debe ser uno de los valores válidos: 0, 1, 2, 3, 3.5, 4, 5'}, 
                     status=status.HTTP_400_BAD_REQUEST
                 )
         except (ValueError, TypeError):
             return Response(
-                {'error': 'El puntaje debe ser un número entero entre 0 y 5'}, 
+                {'error': 'El puntaje debe ser un número válido (0, 1, 2, 3, 3.5, 4, 5)'}, 
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -192,7 +193,7 @@ def crear_o_actualizar_evaluacion(request):
 
         if evaluacion_existente:
             # Actualizar evaluación existente
-            evaluacion_existente.puntaje = puntaje_int
+            evaluacion_existente.puntaje = puntaje_float
             evaluacion_existente.save()
             evaluacion = evaluacion_existente
         else:
@@ -201,7 +202,7 @@ def crear_o_actualizar_evaluacion(request):
                 estudiante_id=estudiante_id,
                 rac_id=rac_id,
                 profesor_id=profesor_id,
-                puntaje=puntaje_int
+                puntaje=puntaje_float
             )
 
         serializer = EvaluacionSerializer(evaluacion)
@@ -253,19 +254,20 @@ def crear_evaluaciones_masivas(request):
                 })
                 continue
 
-            # Validar puntaje (0-5)
+            # Validar puntaje
             try:
-                puntaje_int = int(puntaje)
-                if not (0 <= puntaje_int <= 5):
+                puntaje_float = float(puntaje)
+                valid_puntajes = [0.0, 1.0, 2.0, 3.0, 3.5, 4.0, 5.0]
+                if puntaje_float not in valid_puntajes:
                     resultados.append({
                         'rac_id': rac_id,
-                        'error': f'El puntaje debe estar entre 0 y 5 (recibido: {puntaje})'
+                        'error': f'El puntaje debe ser uno de los valores válidos: 0, 1, 2, 3, 3.5, 4, 5 (recibido: {puntaje})'
                     })
                     continue
             except (ValueError, TypeError):
                 resultados.append({
                     'rac_id': rac_id,
-                    'error': f'El puntaje debe ser un número entero entre 0 y 5 (recibido: {puntaje})'
+                    'error': f'El puntaje debe ser un número válido (0, 1, 2, 3, 3.5, 4, 5) (recibido: {puntaje})'
                 })
                 continue
 
@@ -284,7 +286,7 @@ def crear_evaluaciones_masivas(request):
                 estudiante_id=estudiante_id,
                 rac_id=rac_id,
                 profesor_id=profesor_id,
-                defaults={'puntaje': puntaje_int}
+                defaults={'puntaje': puntaje_float}
             )
 
             if created:
@@ -294,7 +296,7 @@ def crear_evaluaciones_masivas(request):
 
             resultados.append({
                 'rac_id': rac_id,
-                'puntaje': puntaje_int,
+                'puntaje': puntaje_float,
                 'created': created,
                 'success': True
             })

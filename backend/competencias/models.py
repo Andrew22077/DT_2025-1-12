@@ -80,14 +80,15 @@ class Evaluacion(models.Model):
         related_name="evaluaciones",
         verbose_name="Profesor evaluador"
     )
-    puntaje = models.IntegerField(
+    puntaje = models.FloatField(
         choices=[
-            (0, '0 - Reprobado'),
-            (1, '1 - Deficiente'),
-            (2, '2 - Deficiente'),
-            (3, '3 - Insuficiente'),
-            (4, '4 - Notable'),
-            (5, '5 - Excelente')
+            (0.0, '0 - Reprobado'),
+            (1.0, '1 - Deficiente'),
+            (2.0, '2 - Deficiente'),
+            (3.0, '3 - Insuficiente'),
+            (3.5, '3.5 - Aprobado'),
+            (4.0, '4 - Notable'),
+            (5.0, '5 - Excelente')
         ],
         verbose_name="Puntaje de evaluación"
     )
@@ -120,11 +121,13 @@ class Evaluacion(models.Model):
                 'estudiante': 'Solo se pueden evaluar estudiantes matriculados'
             })
         
-        # Validar que el puntaje esté en el rango correcto (0-5)
-        if self.puntaje is not None and (self.puntaje < 0 or self.puntaje > 5):
-            raise ValidationError({
-                'puntaje': 'El puntaje debe estar entre 0 y 5'
-            })
+        # Validar que el puntaje esté en el rango correcto (0-5) y sea un valor válido
+        if self.puntaje is not None:
+            valid_puntajes = [0.0, 1.0, 2.0, 3.0, 3.5, 4.0, 5.0]
+            if self.puntaje not in valid_puntajes:
+                raise ValidationError({
+                    'puntaje': 'El puntaje debe ser uno de los valores válidos: 0, 1, 2, 3, 3.5, 4, 5'
+                })
 
     def save(self, *args, **kwargs):
         """Override save para aplicar validaciones"""
