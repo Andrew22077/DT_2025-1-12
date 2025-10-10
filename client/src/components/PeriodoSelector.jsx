@@ -24,7 +24,7 @@ const PeriodoSelector = ({
   const cargarPeriodoActual = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/periodos/actual/', {
+      const response = await fetch('/competencias/api/periodos/actual/', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'

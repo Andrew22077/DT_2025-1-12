@@ -15,7 +15,7 @@ export const usePeriodosAcademicos = () => {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('/api/periodos/', {
+      const response = await fetch('/competencias/api/periodos/', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -47,7 +47,7 @@ export const usePeriodosAcademicos = () => {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('/api/periodos/actual/', {
+      const response = await fetch('/competencias/api/periodos/actual/', {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -75,7 +75,7 @@ export const usePeriodosAcademicos = () => {
       setLoading(true);
       setError(null);
       
-      const response = await fetch('/api/periodos/crear/', {
+      const response = await fetch('/competencias/api/periodos/crear/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,

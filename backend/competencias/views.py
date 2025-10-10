@@ -1049,7 +1049,7 @@ def resultados_globales(request):
     """Obtener resultados globales completos con estadísticas detalladas"""
     try:
         # Todas las evaluaciones
-        evaluaciones = Evaluacion.objects.select_related('estudiante', 'profesor', 'rac').prefetch_related('rac__gacs', 'rac__materias').all()
+        evaluaciones = Evaluacion.objects.select_related('estudiante', 'profesor', 'rac', 'periodo').prefetch_related('rac__gacs', 'rac__materias').all()
 
         # Promedio general
         promedio_general = evaluaciones.aggregate(promedio=Avg("puntaje"))["promedio"] or 0
