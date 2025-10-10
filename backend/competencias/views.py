@@ -3193,3 +3193,340 @@ def crear_periodo_academico(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ===============================
+# INFORME INDIVIDUAL DE PROFESOR
+# ===============================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def descargar_informe_profesor_individual(request, profesor_id):
+    """Generar y descargar informe individual completo de un profesor"""
+    try:
+        # Obtener el profesor
+        try:
+            profesor = Profesor.objects.get(id=profesor_id)
+        except Profesor.DoesNotExist:
+            return Response({'error': 'Profesor no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Obtener todas las evaluaciones del profesor
+        evaluaciones = Evaluacion.objects.filter(
+            profesor=profesor
+        ).select_related('estudiante', 'rac', 'periodo').prefetch_related(
+            'rac__gacs', 'rac__materias'
+        ).order_by('estudiante__nombre', 'rac__numero')
+        
+        if not evaluaciones.exists():
+            return Response({'error': 'El profesor no tiene evaluaciones registradas'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Calcular estadísticas generales
+        total_evaluaciones = evaluaciones.count()
+        promedio_general = evaluaciones.aggregate(promedio=Avg('puntaje'))['promedio'] or 0
+        
+        # Estadísticas por puntaje
+        estadisticas_puntaje = {}
+        for puntaje in [0.0, 1.0, 2.0, 3.0, 3.5, 4.0, 5.0]:
+            count = evaluaciones.filter(puntaje=puntaje).count()
+            estadisticas_puntaje[puntaje] = count
+        
+        # Obtener estudiantes únicos evaluados
+        estudiantes_evaluados = evaluaciones.values('estudiante').distinct()
+        total_estudiantes = estudiantes_evaluados.count()
+        
+        # Agrupar por curso/materia
+        materias_stats = {}
+        for evaluacion in evaluaciones:
+            for materia in evaluacion.rac.materias.all():
+                materia_key = f"{materia.nombre} (ID: {materia.id})"
+                if materia_key not in materias_stats:
+                    materias_stats[materia_key] = {
+                        'materia': materia,
+                        'evaluaciones': [],
+                        'estudiantes': set(),
+                        'racs': set()
+                    }
+                materias_stats[materia_key]['evaluaciones'].append(evaluacion)
+                materias_stats[materia_key]['estudiantes'].add(evaluacion.estudiante)
+                materias_stats[materia_key]['racs'].add(evaluacion.rac)
+        
+        # Calcular estadísticas por materia
+        for materia_key, data in materias_stats.items():
+            evaluaciones_materia = data['evaluaciones']
+            data['total_evaluaciones'] = len(evaluaciones_materia)
+            data['total_estudiantes'] = len(data['estudiantes'])
+            data['total_racs'] = len(data['racs'])
+            data['promedio'] = sum(e.puntaje for e in evaluaciones_materia) / len(evaluaciones_materia)
+            
+            # Estadísticas por puntaje para esta materia
+            data['estadisticas_puntaje'] = {}
+            for puntaje in [0.0, 1.0, 2.0, 3.0, 3.5, 4.0, 5.0]:
+                count = len([e for e in evaluaciones_materia if e.puntaje == puntaje])
+                data['estadisticas_puntaje'][puntaje] = count
+        
+        # Agrupar evaluaciones por estudiante
+        estudiantes_detalle = {}
+        for evaluacion in evaluaciones:
+            estudiante = evaluacion.estudiante
+            if estudiante.id not in estudiantes_detalle:
+                estudiantes_detalle[estudiante.id] = {
+                    'estudiante': estudiante,
+                    'evaluaciones': [],
+                    'materias': set()
+                }
+            estudiantes_detalle[estudiante.id]['evaluaciones'].append(evaluacion)
+            
+            # Agregar materias del estudiante
+            for materia in evaluacion.rac.materias.all():
+                estudiantes_detalle[estudiante.id]['materias'].add(materia.nombre)
+        
+        # Calcular estadísticas por estudiante
+        for estudiante_id, data in estudiantes_detalle.items():
+            evaluaciones_estudiante = data['evaluaciones']
+            data['total_evaluaciones'] = len(evaluaciones_estudiante)
+            data['promedio'] = sum(e.puntaje for e in evaluaciones_estudiante) / len(evaluaciones_estudiante)
+            data['materias'] = list(data['materias'])
+            
+            # Estadísticas por puntaje para este estudiante
+            data['estadisticas_puntaje'] = {}
+            for puntaje in [0.0, 1.0, 2.0, 3.0, 3.5, 4.0, 5.0]:
+                count = len([e for e in evaluaciones_estudiante if e.puntaje == puntaje])
+                data['estadisticas_puntaje'][puntaje] = count
+        
+        # Obtener período actual
+        periodo_actual = PeriodoAcademico.get_periodo_actual()
+        
+        # Preparar datos para el PDF
+        datos_informe = {
+            'profesor': profesor,
+            'periodo': periodo_actual,
+            'fecha_generacion': timezone.now(),
+            'estadisticas_generales': {
+                'total_evaluaciones': total_evaluaciones,
+                'total_estudiantes': total_estudiantes,
+                'promedio_general': promedio_general,
+                'estadisticas_puntaje': estadisticas_puntaje
+            },
+            'materias': materias_stats,
+            'estudiantes': estudiantes_detalle,
+            'evaluaciones_detalladas': list(evaluaciones)
+        }
+        
+        # Generar PDF
+        return generar_pdf_informe_profesor(datos_informe)
+        
+    except Exception as e:
+        logger.error(f"Error generando informe individual de profesor: {str(e)}")
+        return Response({'error': f'Error generando informe: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def generar_pdf_informe_profesor(datos_informe):
+    """Generar PDF del informe individual de profesor"""
+    try:
+        from io import BytesIO
+        from datetime import datetime
+        
+        # Crear buffer para el PDF
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*inch)
+        
+        # Estilos
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.darkblue
+        )
+        
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=20,
+            textColor=colors.darkblue
+        )
+        
+        normal_style = styles['Normal']
+        normal_style.fontSize = 10
+        
+        # Lista de elementos del PDF
+        story = []
+        
+        # Título principal
+        story.append(Paragraph("INFORME INDIVIDUAL DE PROFESOR", title_style))
+        story.append(Spacer(1, 20))
+        
+        # Información del profesor
+        profesor = datos_informe['profesor']
+        periodo = datos_informe['periodo']
+        
+        info_profesor = [
+            ['Profesor:', profesor.nombre],
+            ['Correo:', profesor.correo],
+            ['Período Académico:', f"{periodo.codigo} - {periodo.nombre}"],
+            ['Fecha de Generación:', datetime.now().strftime("%d/%m/%Y %H:%M")]
+        ]
+        
+        tabla_info = Table(info_profesor, colWidths=[2*inch, 4*inch])
+        tabla_info.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('BACKGROUND', (1, 0), (1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(tabla_info)
+        story.append(Spacer(1, 20))
+        
+        # Estadísticas generales
+        stats = datos_informe['estadisticas_generales']
+        story.append(Paragraph("RESUMEN GENERAL", subtitle_style))
+        
+        stats_data = [
+            ['Total de Evaluaciones:', str(stats['total_evaluaciones'])],
+            ['Total de Estudiantes Evaluados:', str(stats['total_estudiantes'])],
+            ['Promedio General:', f"{stats['promedio_general']:.2f}"]
+        ]
+        
+        tabla_stats = Table(stats_data, colWidths=[3*inch, 2*inch])
+        tabla_stats.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightblue),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('BACKGROUND', (1, 0), (1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(tabla_stats)
+        story.append(Spacer(1, 20))
+        
+        # Distribución de puntajes
+        story.append(Paragraph("DISTRIBUCIÓN DE PUNTAJES", subtitle_style))
+        
+        puntajes_data = [['Puntaje', 'Calificación Cualitativa', 'Cantidad', 'Porcentaje']]
+        total_eval = stats['total_evaluaciones']
+        
+        escala_cualitativa = {
+            5.0: 'Excelente',
+            4.0: 'Notable', 
+            3.5: 'Aprobado',
+            3.0: 'Insuficiente',
+            2.0: 'Deficiente',
+            1.0: 'Deficiente',
+            0.0: 'Reprobado'
+        }
+        
+        for puntaje in [5.0, 4.0, 3.5, 3.0, 2.0, 1.0, 0.0]:
+            cantidad = stats['estadisticas_puntaje'].get(puntaje, 0)
+            porcentaje = (cantidad / total_eval * 100) if total_eval > 0 else 0
+            puntajes_data.append([
+                str(puntaje),
+                escala_cualitativa[puntaje],
+                str(cantidad),
+                f"{porcentaje:.1f}%"
+            ])
+        
+        tabla_puntajes = Table(puntajes_data, colWidths=[1*inch, 2*inch, 1*inch, 1*inch])
+        tabla_puntajes.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+            ('BACKGROUND', (1, 1), (-1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        
+        story.append(tabla_puntajes)
+        story.append(Spacer(1, 20))
+        
+        # Estadísticas por materia
+        if datos_informe['materias']:
+            story.append(Paragraph("ESTADÍSTICAS POR MATERIA", subtitle_style))
+            
+            materias_data = [['Materia', 'Estudiantes', 'Evaluaciones', 'Promedio']]
+            for materia_key, data in datos_informe['materias'].items():
+                materias_data.append([
+                    data['materia'].nombre,
+                    str(data['total_estudiantes']),
+                    str(data['total_evaluaciones']),
+                    f"{data['promedio']:.2f}"
+                ])
+            
+            tabla_materias = Table(materias_data, colWidths=[3*inch, 1.5*inch, 1.5*inch, 1*inch])
+            tabla_materias.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('BACKGROUND', (1, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            story.append(tabla_materias)
+            story.append(Spacer(1, 20))
+        
+        # Detalle por estudiante
+        story.append(Paragraph("DETALLE POR ESTUDIANTE", subtitle_style))
+        
+        for estudiante_id, data in list(datos_informe['estudiantes'].items())[:10]:  # Limitar a 10 estudiantes por página
+            estudiante = data['estudiante']
+            
+            # Información del estudiante
+            story.append(Paragraph(f"<b>Estudiante:</b> {estudiante.nombre} (Grupo: {estudiante.grupo})", normal_style))
+            story.append(Paragraph(f"Promedio: {data['promedio']:.2f} | Evaluaciones: {data['total_evaluaciones']}", normal_style))
+            
+            # Evaluaciones del estudiante
+            eval_data = [['RAC', 'Descripción', 'Puntaje', 'Fecha']]
+            for evaluacion in data['evaluaciones']:
+                eval_data.append([
+                    f"RAC {evaluacion.rac.numero}",
+                    evaluacion.rac.descripcion[:50] + "..." if len(evaluacion.rac.descripcion) > 50 else evaluacion.rac.descripcion,
+                    str(evaluacion.puntaje),
+                    evaluacion.fecha.strftime("%d/%m/%Y")
+                ])
+            
+            tabla_eval = Table(eval_data, colWidths=[0.8*inch, 3*inch, 0.8*inch, 1*inch])
+            tabla_eval.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('BACKGROUND', (1, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black)
+            ]))
+            
+            story.append(tabla_eval)
+            story.append(Spacer(1, 15))
+        
+        # Nota sobre más estudiantes
+        if len(datos_informe['estudiantes']) > 10:
+            story.append(Paragraph(f"<i>Nota: Se muestran los primeros 10 estudiantes de {len(datos_informe['estudiantes'])} totales.</i>", normal_style))
+        
+        # Construir PDF
+        doc.build(story)
+        buffer.seek(0)
+        
+        # Crear respuesta HTTP
+        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="informe_profesor_{profesor.nombre.replace(" ", "_")}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf"'
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error generando PDF de informe de profesor: {str(e)}")
+        return Response({'error': f'Error generando PDF: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

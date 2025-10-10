@@ -45,6 +45,9 @@ urlpatterns = [
     path('api/periodos/', views.obtener_periodos_academicos, name='obtener_periodos_academicos'),
     path('api/periodos/actual/', views.obtener_periodo_actual, name='obtener_periodo_actual'),
     path('api/periodos/crear/', views.crear_periodo_academico, name='crear_periodo_academico'),
+    
+    # URL para informe individual de profesor
+    path('api/profesor/<int:profesor_id>/informe/', views.descargar_informe_profesor_individual, name='informe_profesor_individual'),
 
     # Router URLs después (más generales)
     path('api/', include(router.urls)),
