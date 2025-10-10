@@ -7,6 +7,91 @@ from django.db import models
 from usuarios.models import Profesor, Estudiante  # Importas los que ya tienes
 
 # -----------------------
+# Período Académico
+# -----------------------
+class PeriodoAcademico(models.Model):
+    codigo = models.CharField(max_length=10, unique=True, verbose_name="Código del período")
+    nombre = models.CharField(max_length=50, verbose_name="Nombre del período")
+    año = models.IntegerField(verbose_name="Año")
+    semestre = models.IntegerField(
+        choices=[(1, 'Primer Semestre'), (2, 'Segundo Semestre')],
+        verbose_name="Semestre"
+    )
+    fecha_inicio = models.DateField(verbose_name="Fecha de inicio")
+    fecha_fin = models.DateField(verbose_name="Fecha de fin")
+    activo = models.BooleanField(default=True, verbose_name="Período activo")
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+
+    class Meta:
+        verbose_name = "Período Académico"
+        verbose_name_plural = "Períodos Académicos"
+        ordering = ['-año', '-semestre']
+        unique_together = ['año', 'semestre']
+
+    def __str__(self):
+        return f"{self.codigo} - {self.nombre}"
+
+    def clean(self):
+        """Validaciones personalizadas del modelo"""
+        super().clean()
+        
+        # Validar que la fecha de fin sea posterior a la fecha de inicio
+        if self.fecha_inicio and self.fecha_fin and self.fecha_fin <= self.fecha_inicio:
+            raise ValidationError({
+                'fecha_fin': 'La fecha de fin debe ser posterior a la fecha de inicio'
+            })
+        
+        # Generar código automáticamente si no se proporciona
+        if not self.codigo and self.año and self.semestre:
+            self.codigo = f"{self.año}-{self.semestre}"
+
+    def save(self, *args, **kwargs):
+        """Override save para aplicar validaciones y generar código"""
+        # Generar código automáticamente si no se proporciona
+        if not self.codigo and self.año and self.semestre:
+            self.codigo = f"{self.año}-{self.semestre}"
+        
+        # Generar nombre automáticamente si no se proporciona
+        if not self.nombre and self.año and self.semestre:
+            semestre_nombre = "Primer Semestre" if self.semestre == 1 else "Segundo Semestre"
+            self.nombre = f"{semestre_nombre} {self.año}"
+        
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_periodo_actual(cls):
+        """Retorna el período académico actual basado en la fecha"""
+        from django.utils import timezone
+        
+        fecha_actual = timezone.now().date()
+        
+        # Buscar período activo que contenga la fecha actual
+        periodo_actual = cls.objects.filter(
+            activo=True,
+            fecha_inicio__lte=fecha_actual,
+            fecha_fin__gte=fecha_actual
+        ).first()
+        
+        if not periodo_actual:
+            # Si no hay período activo, crear uno automáticamente
+            año_actual = fecha_actual.year
+            mes_actual = fecha_actual.month
+            
+            # Determinar semestre basado en el mes
+            semestre = 1 if mes_actual <= 6 else 2
+            
+            periodo_actual = cls.objects.create(
+                año=año_actual,
+                semestre=semestre,
+                fecha_inicio=fecha_actual,
+                fecha_fin=fecha_actual.replace(month=12, day=31) if semestre == 2 
+                         else fecha_actual.replace(month=6, day=30)
+            )
+        
+        return periodo_actual
+
+# -----------------------
 # GAC
 # -----------------------
 class GAC(models.Model):
@@ -80,6 +165,15 @@ class Evaluacion(models.Model):
         related_name="evaluaciones",
         verbose_name="Profesor evaluador"
     )
+    periodo = models.ForeignKey(
+        PeriodoAcademico,
+        on_delete=models.CASCADE,
+        related_name="evaluaciones",
+        verbose_name="Período académico",
+        default=None,
+        null=True,
+        blank=True
+    )
     puntaje = models.FloatField(
         choices=[
             (0.0, '0 - Reprobado'),
@@ -105,8 +199,8 @@ class Evaluacion(models.Model):
             models.Index(fields=['profesor', 'estudiante']),
             models.Index(fields=['fecha']),
         ]
-        # Restricción única: un profesor solo puede evaluar un estudiante en un RAC específico
-        unique_together = ['estudiante', 'rac', 'profesor']
+        # Restricción única: un profesor solo puede evaluar un estudiante en un RAC específico por período
+        unique_together = ['estudiante', 'rac', 'profesor', 'periodo']
 
     def __str__(self):
         return f"Eval {self.estudiante.nombre} - RAC {self.rac.numero} ({self.puntaje}) - {self.profesor.nombre}"
@@ -130,7 +224,11 @@ class Evaluacion(models.Model):
                 })
 
     def save(self, *args, **kwargs):
-        """Override save para aplicar validaciones"""
+        """Override save para aplicar validaciones y asignar período automáticamente"""
+        # Asignar período actual si no se proporciona
+        if not self.periodo:
+            self.periodo = PeriodoAcademico.get_periodo_actual()
+        
         self.full_clean()
         super().save(*args, **kwargs)
 

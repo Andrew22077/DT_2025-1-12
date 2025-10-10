@@ -1,6 +1,12 @@
 from rest_framework import serializers
-from .models import GAC, RAC, Materia , Evaluacion
-from usuarios.models import Profesor , Estudiante
+from .models import GAC, RAC, Materia, Evaluacion, PeriodoAcademico
+from usuarios.models import Profesor, Estudiante
+
+
+class PeriodoAcademicoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PeriodoAcademico
+        fields = ['id', 'codigo', 'nombre', 'año', 'semestre', 'fecha_inicio', 'fecha_fin', 'activo']
 
 
 class GACSerializer(serializers.ModelSerializer):
@@ -44,6 +50,10 @@ class EvaluacionSerializer(serializers.ModelSerializer):
     rac_id = serializers.PrimaryKeyRelatedField(
         queryset=RAC.objects.all(), source="rac", write_only=True
     )
+    periodo = PeriodoAcademicoSerializer(read_only=True)
+    periodo_id = serializers.PrimaryKeyRelatedField(
+        queryset=PeriodoAcademico.objects.all(), source="periodo", write_only=True, required=False
+    )
 
     class Meta:
         model = Evaluacion
@@ -51,6 +61,7 @@ class EvaluacionSerializer(serializers.ModelSerializer):
             "id", "rac", "rac_id",
             "estudiante", "estudiante_id",
             "profesor", "profesor_id",
+            "periodo", "periodo_id",
             "puntaje", "fecha"
         ]
         

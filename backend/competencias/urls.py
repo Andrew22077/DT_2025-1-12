@@ -40,6 +40,11 @@ urlpatterns = [
     path('api/pdf/por-estudiante/', views.descargar_pdf_por_estudiante, name='descargar_pdf_por_estudiante'),
     path('api/pdf/estudiante-individual/<int:estudiante_id>/', views.descargar_pdf_estudiante_individual, name='descargar_pdf_estudiante_individual'),
     path('api/pdf/estudiantes-por-semestre/', views.descargar_pdf_estudiantes_por_semestre, name='descargar_pdf_estudiantes_por_semestre'),
+    
+    # URLs para períodos académicos
+    path('api/periodos/', views.obtener_periodos_academicos, name='obtener_periodos_academicos'),
+    path('api/periodos/actual/', views.obtener_periodo_actual, name='obtener_periodo_actual'),
+    path('api/periodos/crear/', views.crear_periodo_academico, name='crear_periodo_academico'),
 
     # Router URLs después (más generales)
     path('api/', include(router.urls)),

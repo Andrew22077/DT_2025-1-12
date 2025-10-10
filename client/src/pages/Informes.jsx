@@ -12,6 +12,7 @@ import {
   FaDownload,
   FaBook,
   FaBookOpen,
+  FaCalendarAlt,
 } from "react-icons/fa";
 import {
   BarChart,
@@ -31,16 +32,20 @@ import {
   convertirCalificacionCualitativa,
   getSemaforoColor 
 } from "../utils/gradeUtils";
+import PeriodoSelector from "../components/PeriodoSelector";
+import { usePeriodosAcademicos } from "../hooks/usePeriodosAcademicos";
 
 const Informes = () => {
   const { user } = useAuth();
   const evaluacionApi = useEvaluacionApi();
+  const { periodos, periodoActual, loading: loadingPeriodos } = usePeriodosAcademicos();
 
   const [resultadosGlobales, setResultadosGlobales] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("general");
   const [filtroEstudiante, setFiltroEstudiante] = useState("todos");
   const [filtroProfesor, setFiltroProfesor] = useState("todos");
+  const [periodoSeleccionado, setPeriodoSeleccionado] = useState(null);
 
   // Nuevos estados para las nuevas funcionalidades
   const [gacsSemestre, setGacsSemestre] = useState(null);
@@ -59,6 +64,13 @@ const Informes = () => {
   useEffect(() => {
     cargarResultados();
   }, []);
+
+  // Establecer período actual como seleccionado por defecto
+  useEffect(() => {
+    if (periodoActual && !periodoSeleccionado) {
+      setPeriodoSeleccionado(periodoActual);
+    }
+  }, [periodoActual, periodoSeleccionado]);
 
   // Cargar resultados de estudiantes cuando cambie la pestaña activa
   useEffect(() => {
@@ -600,7 +612,8 @@ const Informes = () => {
       <div className="max-w-7xl mx-auto px-4">
         {/* Header y Tabs */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
             <FaChartBar className="text-3xl text-blue-600" />
             <div>
               <h1 className="text-3xl font-bold text-gray-800">
@@ -611,6 +624,18 @@ const Informes = () => {
               </p>
             </div>
           </div>
+          
+          {/* Selector de Período Académico */}
+          <div className="flex-shrink-0">
+            <PeriodoSelector
+              periodos={periodos}
+              periodoSeleccionado={periodoSeleccionado}
+              onPeriodoChange={setPeriodoSeleccionado}
+              mostrarActual={true}
+              className="text-right"
+            />
+          </div>
+        </div>
           
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8">
@@ -642,6 +667,31 @@ const Informes = () => {
         {/* --- Tab General --- */}
         {activeTab === "general" && (
           <div className="space-y-6">
+            {/* Indicador de Período Actual */}
+            {periodoSeleccionado && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <FaCalendarAlt className="text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">
+                      Período seleccionado:
+                    </span>
+                    <span className="text-sm font-bold text-blue-900">
+                      {periodoSeleccionado.codigo} - {periodoSeleccionado.nombre}
+                    </span>
+                    {periodoSeleccionado.activo && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Actual
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-blue-600">
+                    {new Date(periodoSeleccionado.fecha_inicio).toLocaleDateString()} - {new Date(periodoSeleccionado.fecha_fin).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Botón de descarga PDF */}
             <div className="flex justify-end mb-4">
               <button

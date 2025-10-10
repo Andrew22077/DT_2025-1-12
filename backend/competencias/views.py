@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Q
 from django.core.exceptions import ValidationError
-from .models import GAC, RAC, Materia, Evaluacion
-from .serializers import GACSerializer, RACSerializer, MateriaSerializer, EvaluacionSerializer , EstadisticaGACSerializer
+from .models import GAC, RAC, Materia, Evaluacion, PeriodoAcademico
+from .serializers import GACSerializer, RACSerializer, MateriaSerializer, EvaluacionSerializer, EstadisticaGACSerializer, PeriodoAcademicoSerializer
 from usuarios.models import Profesor, Estudiante
 from django.db.models import Avg, Count, F, Max
 import random
@@ -3151,3 +3151,45 @@ def descargar_pdf_por_estudiante(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+# ===============================
+# VISTAS PARA PERÍODOS ACADÉMICOS
+# ===============================
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def obtener_periodos_academicos(request):
+    """Obtener todos los períodos académicos ordenados por año y semestre"""
+    try:
+        periodos = PeriodoAcademico.objects.all().order_by('-año', '-semestre')
+        serializer = PeriodoAcademicoSerializer(periodos, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def obtener_periodo_actual(request):
+    """Obtener el período académico actual"""
+    try:
+        periodo_actual = PeriodoAcademico.get_periodo_actual()
+        serializer = PeriodoAcademicoSerializer(periodo_actual)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def crear_periodo_academico(request):
+    """Crear un nuevo período académico"""
+    try:
+        serializer = PeriodoAcademicoSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
