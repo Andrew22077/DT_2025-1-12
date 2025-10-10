@@ -13,6 +13,7 @@ import {
   FaBook,
   FaBookOpen,
   FaCalendarAlt,
+  FaTimes,
 } from "react-icons/fa";
 import {
   BarChart,
@@ -46,6 +47,8 @@ const Informes = () => {
   const [filtroEstudiante, setFiltroEstudiante] = useState("todos");
   const [filtroProfesor, setFiltroProfesor] = useState("todos");
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState(null);
+  const [mostrarModalProfesor, setMostrarModalProfesor] = useState(false);
+  const [profesorSeleccionado, setProfesorSeleccionado] = useState(null);
 
   // Nuevos estados para las nuevas funcionalidades
   const [gacsSemestre, setGacsSemestre] = useState(null);
@@ -142,6 +145,73 @@ const Informes = () => {
       toast.error("Error al cargar detalle: " + (error.message || error));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Función para mostrar modal de información del profesor
+  const mostrarInformacionProfesor = (profesorId, profesorNombre) => {
+    // Buscar información del profesor en los datos disponibles
+    const profesorInfo = profesoresMaterias?.profesores_materias?.find(
+      p => p.profesor_id === profesorId
+    );
+    
+    if (profesorInfo) {
+      setProfesorSeleccionado({
+        id: profesorId,
+        nombre: profesorNombre,
+        materia: profesorInfo.materia_nombre,
+        promedio: profesorInfo.promedio,
+        total_estudiantes: profesorInfo.total_estudiantes,
+        total_evaluaciones: profesorInfo.total_evaluaciones
+      });
+      setMostrarModalProfesor(true);
+    } else {
+      // Si no se encuentra información, descargar directamente
+      descargarInformeProfesor(profesorId, profesorNombre);
+    }
+  };
+
+  // Función para descargar informe individual de profesor
+  const descargarInformeProfesor = async (profesorId, profesorNombre) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('No se encontró token de autenticación');
+        return;
+      }
+
+      // Mostrar mensaje de carga
+      toast.loading('Generando informe del profesor...', { id: 'descargando-informe' });
+
+      const response = await fetch(`/competencias/api/profesor/${profesorId}/informe/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Error al generar el informe');
+      }
+
+      // Obtener el archivo PDF
+      const blob = await response.blob();
+      
+      // Crear URL temporal para descarga
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `informe_profesor_${profesorNombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success(`Informe de ${profesorNombre} descargado exitosamente`, { id: 'descargando-informe' });
+      
+    } catch (error) {
+      console.error('Error descargando informe de profesor:', error);
+      toast.error(`Error al descargar informe: ${error.message}`, { id: 'descargando-informe' });
     }
   };
 
@@ -1344,16 +1414,10 @@ const Informes = () => {
                   {profesoresMaterias.profesores_materias.map((item, index) => (
                     <div
                       key={index}
-                      className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
-                      onClick={() =>
-                        cargarDetalleProfesorMateria(
-                          item.profesor_id,
-                          item.materia_id
-                        )
-                      }
+                      className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
                     >
                       <div className="flex justify-between items-start mb-4">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-semibold text-gray-800 text-lg">
                             {item.profesor_nombre}
                           </h3>
@@ -1361,7 +1425,30 @@ const Informes = () => {
                             {item.materia_nombre}
                           </p>
                         </div>
-                        <FaEye className="text-gray-400 hover:text-gray-600" />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              mostrarInformacionProfesor(item.profesor_id, item.profesor_nombre);
+                            }}
+                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
+                            title="Descargar informe individual del profesor"
+                          >
+                            <FaDownload className="text-sm" />
+                          </button>
+                          <button
+                            onClick={() =>
+                              cargarDetalleProfesorMateria(
+                                item.profesor_id,
+                                item.materia_id
+                              )
+                            }
+                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition-colors"
+                            title="Ver detalles"
+                          >
+                            <FaEye className="text-sm" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="space-y-3">
@@ -1666,6 +1753,87 @@ const Informes = () => {
           </button>
         </div>
       </div>
+
+      {/* Modal de información del profesor */}
+      {mostrarModalProfesor && profesorSeleccionado && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Informe del Profesor
+              </h3>
+              <button
+                onClick={() => setMostrarModalProfesor(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <FaTimes className="text-lg" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="border-b pb-3">
+                <h4 className="font-medium text-gray-800">{profesorSeleccionado.nombre}</h4>
+                <p className="text-sm text-gray-600">{profesorSeleccionado.materia}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-blue-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Estudiantes Evaluados</p>
+                  <p className="text-xl font-bold text-blue-600">
+                    {profesorSeleccionado.total_estudiantes}
+                  </p>
+                </div>
+                <div className="bg-green-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Total Evaluaciones</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {profesorSeleccionado.total_evaluaciones}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600">Promedio General</p>
+                <p className={`text-2xl font-bold ${getColorByPuntaje(profesorSeleccionado.promedio)}`}>
+                  {profesorSeleccionado.promedio}
+                  <span className="text-sm font-normal text-gray-600 ml-2">
+                    ({convertirCalificacionCualitativa(profesorSeleccionado.promedio)})
+                  </span>
+                </p>
+              </div>
+              
+              <div className="bg-yellow-50 p-3 rounded-lg">
+                <p className="text-sm text-gray-600 mb-2">El informe incluirá:</p>
+                <ul className="text-xs text-gray-700 space-y-1">
+                  <li>• Estadísticas detalladas por materia</li>
+                  <li>• Distribución de calificaciones</li>
+                  <li>• Evaluaciones individuales por estudiante</li>
+                  <li>• Fechas y detalles de cada evaluación</li>
+                  <li>• Información del período académico</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setMostrarModalProfesor(false)}
+                className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  setMostrarModalProfesor(false);
+                  descargarInformeProfesor(profesorSeleccionado.id, profesorSeleccionado.nombre);
+                }}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <FaDownload className="text-sm" />
+                Descargar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
