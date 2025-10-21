@@ -3303,13 +3303,24 @@ def descargar_informe_profesor_individual(request, profesor_id):
                 estudiantes_detalle[estudiante.id] = {
                     'estudiante': estudiante,
                     'evaluaciones': [],
-                    'materias': set()
+                    'materias': set(),
+                    'gacs': {}
                 }
             estudiantes_detalle[estudiante.id]['evaluaciones'].append(evaluacion)
             
             # Agregar materias del estudiante
             for materia in evaluacion.rac.materias.all():
                 estudiantes_detalle[estudiante.id]['materias'].add(materia.nombre)
+            
+            # Agregar GACs del estudiante
+            for gac in evaluacion.rac.gacs.all():
+                if gac.numero not in estudiantes_detalle[estudiante.id]['gacs']:
+                    estudiantes_detalle[estudiante.id]['gacs'][gac.numero] = {
+                        'descripcion': gac.descripcion,
+                        'evaluaciones': [],
+                        'promedio': 0
+                    }
+                estudiantes_detalle[estudiante.id]['gacs'][gac.numero]['evaluaciones'].append(evaluacion.puntaje)
         
         # Calcular estadísticas por estudiante
         for estudiante_id, data in estudiantes_detalle.items():
@@ -3317,6 +3328,13 @@ def descargar_informe_profesor_individual(request, profesor_id):
             data['total_evaluaciones'] = len(evaluaciones_estudiante)
             data['promedio'] = sum(e.puntaje for e in evaluaciones_estudiante) / len(evaluaciones_estudiante)
             data['materias'] = list(data['materias'])
+            
+            # Calcular promedios por GAC para este estudiante
+            for gac_num, gac_data in data['gacs'].items():
+                if gac_data['evaluaciones']:
+                    gac_data['promedio'] = round(sum(gac_data['evaluaciones']) / len(gac_data['evaluaciones']), 2)
+                else:
+                    gac_data['promedio'] = 0
             
             # Estadísticas por puntaje para este estudiante
             data['estadisticas_puntaje'] = {}
@@ -3450,7 +3468,7 @@ def generar_pdf_informe_profesor(datos_informe):
         story.append(Paragraph("RESUMEN GENERAL", subtitle_style))
         
         stats_data = [
-            ['Total de Evaluaciones:', str(stats['total_evaluaciones'])],
+            ['Total de RACs Evaluados:', str(stats['total_evaluaciones'])],
             ['Total de Estudiantes Evaluados:', str(stats['total_estudiantes'])],
             ['Promedio General:', f"{stats['promedio_general']:.2f}"]
         ]
@@ -3511,33 +3529,75 @@ def generar_pdf_informe_profesor(datos_informe):
         story.append(tabla_puntajes)
         story.append(Spacer(1, 20))
         
-        # Detalle por estudiante (simplificado)
+        # Detalle por estudiante con GACs
         if datos_informe.get('estudiantes'):
             story.append(Paragraph("DETALLE POR ESTUDIANTE", subtitle_style))
             
-            estudiantes_data = [['Estudiante', 'Grupo', 'Promedio', 'Evaluaciones']]
-            for estudiante_id, data in list(datos_informe['estudiantes'].items())[:15]:  # Limitar a 15 estudiantes
+            # Tabla principal de estudiantes
+            estudiantes_data = [['Estudiante', 'Grupo', 'Promedio General', 'RACs Evaluados']]
+            for estudiante_id, data in list(datos_informe['estudiantes'].items())[:10]:  # Limitar a 10 estudiantes para dejar espacio a GACs
                 estudiante = data['estudiante']
                 estudiantes_data.append([
-                    str(estudiante.nombre)[:30],  # Truncar nombre largo
+                    str(estudiante.nombre)[:25],  # Truncar nombre largo
                     str(estudiante.grupo),
                     f"{data['promedio']:.2f}",
                     str(data['total_evaluaciones'])
                 ])
             
-            tabla_estudiantes = Table(estudiantes_data, colWidths=[2.5*inch, 1*inch, 1*inch, 1.5*inch])
+            tabla_estudiantes = Table(estudiantes_data, colWidths=[2.2*inch, 0.8*inch, 1*inch, 1*inch])
             tabla_estudiantes.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
                 ('BACKGROUND', (1, 1), (-1, -1), colors.white),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black)
             ]))
             
             story.append(tabla_estudiantes)
+            story.append(Spacer(1, 10))
+            
+            # Tabla detallada de GACs por estudiante
+            story.append(Paragraph("PROMEDIOS POR GAC DE ESTUDIANTES", subtitle_style))
+            
+            # Crear tabla de GACs por estudiante
+            gacs_estudiantes_data = []
+            
+            # Header de la tabla
+            header_gacs = ['Estudiante', 'GAC 1', 'GAC 2', 'GAC 3', 'GAC 4', 'GAC 5', 'GAC 6']
+            gacs_estudiantes_data.append(header_gacs)
+            
+            # Datos de GACs por estudiante
+            for estudiante_id, data in list(datos_informe['estudiantes'].items())[:10]:
+                estudiante = data['estudiante']
+                fila_gacs = [str(estudiante.nombre)[:20]]  # Nombre truncado
+                
+                # Agregar promedios por GAC (1-6)
+                for gac_num in range(1, 7):
+                    if gac_num in data['gacs']:
+                        promedio_gac = data['gacs'][gac_num]['promedio']
+                        fila_gacs.append(f"{promedio_gac:.2f}")
+                    else:
+                        fila_gacs.append("N/A")
+                
+                gacs_estudiantes_data.append(fila_gacs)
+            
+            tabla_gacs_estudiantes = Table(gacs_estudiantes_data, colWidths=[1.5*inch, 0.7*inch, 0.7*inch, 0.7*inch, 0.7*inch, 0.7*inch, 0.7*inch])
+            tabla_gacs_estudiantes.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, -1), 7),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('BACKGROUND', (1, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
+            ]))
+            
+            story.append(tabla_gacs_estudiantes)
         
         # Construir PDF
         print(f"Construyendo PDF con {len(story)} elementos...")
