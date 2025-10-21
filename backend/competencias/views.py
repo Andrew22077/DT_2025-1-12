@@ -620,22 +620,26 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
         print(f"Evaluaciones período actual ({periodo_actual.codigo}): {evaluaciones_periodo_actual.count()}")
         print(f"Evaluaciones período anterior ({periodo_anterior.codigo if periodo_anterior else 'N/A'}): {len(evaluaciones_periodo_anterior)}")
         
-        # Separar evaluaciones por semestre basándose en periodos académicos
-        # Si no hay evaluaciones con período asignado, usar la lógica de fechas como fallback
-        evaluaciones_primer_semestre = list(evaluaciones_periodo_anterior) if es_segundo_semestre else []
-        evaluaciones_segundo_semestre = list(evaluaciones_periodo_actual)
+        # Estrategia híbrida: usar períodos cuando estén disponibles, fechas como fallback
+        evaluaciones_primer_semestre = []
+        evaluaciones_segundo_semestre = []
         
-        # Si no hay evaluaciones con períodos asignados, usar lógica de fechas como fallback
+        # Primero intentar con períodos académicos
+        if es_segundo_semestre and periodo_anterior:
+            evaluaciones_primer_semestre = list(evaluaciones_periodo_anterior)
+            print(f"Usando períodos académicos - Evaluaciones primer semestre ({periodo_anterior.codigo}): {len(evaluaciones_primer_semestre)}")
+        
+        evaluaciones_segundo_semestre = list(evaluaciones_periodo_actual)
+        print(f"Usando períodos académicos - Evaluaciones segundo semestre ({periodo_actual.codigo}): {len(evaluaciones_segundo_semestre)}")
+        
+        # Si no hay suficientes evaluaciones con períodos, complementar con lógica de fechas
         if not evaluaciones_primer_semestre and not evaluaciones_segundo_semestre:
-            print("No se encontraron evaluaciones con períodos asignados, usando lógica de fechas como fallback")
+            print("No se encontraron evaluaciones con períodos asignados, usando lógica de fechas")
             
             # Obtener todas las evaluaciones del estudiante
             todas_evaluaciones = Evaluacion.objects.filter(estudiante=estudiante)
             
             # Separar por fechas
-            evaluaciones_primer_semestre = []
-            evaluaciones_segundo_semestre = []
-            
             for evaluacion in todas_evaluaciones:
                 semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
                 if semestre == 'primer_semestre':
@@ -645,6 +649,30 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
             
             print(f"Fallback - Evaluaciones primer semestre (por fecha): {len(evaluaciones_primer_semestre)}")
             print(f"Fallback - Evaluaciones segundo semestre (por fecha): {len(evaluaciones_segundo_semestre)}")
+        
+        # Si hay evaluaciones con períodos pero faltan algunas, complementar con fechas
+        elif len(evaluaciones_primer_semestre) + len(evaluaciones_segundo_semestre) < todas_evaluaciones.count():
+            print("Complementando con lógica de fechas para evaluaciones sin período asignado")
+            
+            # Obtener IDs de evaluaciones ya procesadas
+            ids_procesadas = set()
+            for eval in evaluaciones_primer_semestre:
+                ids_procesadas.add(eval.id)
+            for eval in evaluaciones_segundo_semestre:
+                ids_procesadas.add(eval.id)
+            
+            # Procesar evaluaciones restantes por fechas
+            todas_evaluaciones = Evaluacion.objects.filter(estudiante=estudiante)
+            for evaluacion in todas_evaluaciones:
+                if evaluacion.id not in ids_procesadas:
+                    semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
+                    if semestre == 'primer_semestre':
+                        evaluaciones_primer_semestre.append(evaluacion)
+                    else:  # segundo_semestre
+                        evaluaciones_segundo_semestre.append(evaluacion)
+            
+            print(f"Complementado - Evaluaciones primer semestre: {len(evaluaciones_primer_semestre)}")
+            print(f"Complementado - Evaluaciones segundo semestre: {len(evaluaciones_segundo_semestre)}")
         
         def procesar_evaluaciones(evaluaciones_list, semestre_nombre):
             if not evaluaciones_list:
@@ -1025,31 +1053,47 @@ def obtener_resultados_estudiante_por_semestre_interno(estudiante_id):
             periodo=periodo_anterior
         )
     
-    # Separar evaluaciones por semestre basándose en periodos académicos
-    # Si no hay evaluaciones con período asignado, usar la lógica de fechas como fallback
-    evaluaciones_primer_semestre = list(evaluaciones_periodo_anterior) if es_segundo_semestre else []
+    # Estrategia híbrida: usar períodos cuando estén disponibles, fechas como fallback
+    evaluaciones_primer_semestre = []
+    evaluaciones_segundo_semestre = []
+    
+    # Primero intentar con períodos académicos
+    if es_segundo_semestre and periodo_anterior:
+        evaluaciones_primer_semestre = list(evaluaciones_periodo_anterior)
+    
     evaluaciones_segundo_semestre = list(evaluaciones_periodo_actual)
     
-    # Si no hay evaluaciones con períodos asignados, usar lógica de fechas como fallback
+    # Si no hay suficientes evaluaciones con períodos, complementar con lógica de fechas
     if not evaluaciones_primer_semestre and not evaluaciones_segundo_semestre:
-        print("No se encontraron evaluaciones con períodos asignados, usando lógica de fechas como fallback")
-        
         # Obtener todas las evaluaciones del estudiante
         todas_evaluaciones = Evaluacion.objects.filter(estudiante=estudiante)
         
         # Separar por fechas
-        evaluaciones_primer_semestre = []
-        evaluaciones_segundo_semestre = []
-        
         for evaluacion in todas_evaluaciones:
             semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
             if semestre == 'primer_semestre':
                 evaluaciones_primer_semestre.append(evaluacion)
             else:  # segundo_semestre
                 evaluaciones_segundo_semestre.append(evaluacion)
+    
+    # Si hay evaluaciones con períodos pero faltan algunas, complementar con fechas
+    elif len(evaluaciones_primer_semestre) + len(evaluaciones_segundo_semestre) < todas_evaluaciones.count():
+        # Obtener IDs de evaluaciones ya procesadas
+        ids_procesadas = set()
+        for eval in evaluaciones_primer_semestre:
+            ids_procesadas.add(eval.id)
+        for eval in evaluaciones_segundo_semestre:
+            ids_procesadas.add(eval.id)
         
-        print(f"Fallback - Evaluaciones primer semestre (por fecha): {len(evaluaciones_primer_semestre)}")
-        print(f"Fallback - Evaluaciones segundo semestre (por fecha): {len(evaluaciones_segundo_semestre)}")
+        # Procesar evaluaciones restantes por fechas
+        todas_evaluaciones = Evaluacion.objects.filter(estudiante=estudiante)
+        for evaluacion in todas_evaluaciones:
+            if evaluacion.id not in ids_procesadas:
+                semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
+                if semestre == 'primer_semestre':
+                    evaluaciones_primer_semestre.append(evaluacion)
+                else:  # segundo_semestre
+                    evaluaciones_segundo_semestre.append(evaluacion)
     
     def procesar_evaluaciones_interno(evaluaciones_list, semestre_nombre):
         if not evaluaciones_list:
