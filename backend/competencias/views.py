@@ -3222,9 +3222,153 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
             story.append(gac_table)
             story.append(Spacer(1, 20))
         
-        # Evaluaciones detalladas por RAC con colores
-        if rac_data:
-            print("Agregando evaluaciones detalladas por RAC...")
+        # Evaluaciones detalladas por RAC por períodos
+        if es_segundo_semestre and datos_estudiante.get('primer_semestre') and datos_estudiante.get('segundo_semestre'):
+            print("Agregando evaluaciones detalladas por RAC por períodos...")
+            story.append(Paragraph("📋 Evaluaciones Detalladas por RAC por Períodos", estilos['subtitulo']))
+            story.append(Spacer(1, 10))
+            
+            # Obtener estilos base de reportlab
+            styles_base = getSampleStyleSheet()
+            
+            # Estilo para texto dentro de celdas
+            cell_style = ParagraphStyle(
+                'CellStyle',
+                parent=styles_base['Normal'],
+                fontSize=8,
+                leading=10,
+                alignment=TA_LEFT
+            )
+            
+            cell_style_center = ParagraphStyle(
+                'CellStyleCenter',
+                parent=styles_base['Normal'],
+                fontSize=8,
+                leading=10,
+                alignment=TA_CENTER
+            )
+            
+            # Procesar RACs del primer semestre
+            primer_semestre = datos_estudiante['primer_semestre']
+            segundo_semestre = datos_estudiante['segundo_semestre']
+            
+            # Crear tabla para primer semestre
+            if primer_semestre.get('grafico_gacs'):
+                story.append(Paragraph(f"📅 {primer_semestre.get('semestre', 'Primer Semestre')}", estilos['texto']))
+                story.append(Spacer(1, 5))
+                
+                # Obtener evaluaciones del primer semestre (usar lógica de fechas como fallback)
+                evaluaciones_primer = []
+                for evaluacion in evaluaciones:
+                    # Verificar si pertenece al primer semestre por fecha
+                    mes = evaluacion.fecha.month
+                    if 1 <= mes <= 6:  # Enero a Junio = Primer Semestre
+                        evaluaciones_primer.append(evaluacion)
+                
+                if evaluaciones_primer:
+                    rac_table_data_primer = [["RAC", "Descripción", "Profesor", "Puntaje", "GACs"]]
+                    for evaluacion in evaluaciones_primer:
+                        # Truncar descripción si es muy larga
+                        descripcion = evaluacion.rac.descripcion
+                        if len(descripcion) > 45:
+                            descripcion = descripcion[:45] + "..."
+                        
+                        # Truncar nombre de profesor si es muy largo
+                        profesor = evaluacion.profesor.nombre
+                        if len(profesor) > 25:
+                            profesor = profesor[:25] + "..."
+                        
+                        rac_table_data_primer.append([
+                            Paragraph(f"<b>RAC {evaluacion.rac.numero}</b>", cell_style_center),
+                            Paragraph(descripcion, cell_style),
+                            Paragraph(profesor, cell_style),
+                            Paragraph(f"<b>{evaluacion.puntaje}/5</b>", cell_style_center),
+                            Paragraph(", ".join([f"GAC {gac.numero}" for gac in evaluacion.rac.gacs.all()]), cell_style_center)
+                        ])
+                    
+                    rac_table_primer = Table(rac_table_data_primer, colWidths=[0.6*inch, 2.4*inch, 1.5*inch, 0.6*inch, 1.4*inch])
+                    rac_table_primer.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+                        ('ALIGN', (2, 1), (2, -1), 'LEFT'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 9),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                        ('TOPPADDING', (0, 0), (-1, -1), 6),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
+                    ]))
+                    story.append(rac_table_primer)
+                else:
+                    story.append(Paragraph("No hay evaluaciones registradas para este período.", estilos['texto']))
+                
+                story.append(Spacer(1, 15))
+            
+            # Crear tabla para segundo semestre
+            if segundo_semestre.get('grafico_gacs'):
+                story.append(Paragraph(f"📅 {segundo_semestre.get('semestre', 'Segundo Semestre')}", estilos['texto']))
+                story.append(Spacer(1, 5))
+                
+                # Obtener evaluaciones del segundo semestre (usar lógica de fechas como fallback)
+                evaluaciones_segundo = []
+                for evaluacion in evaluaciones:
+                    # Verificar si pertenece al segundo semestre por fecha
+                    mes = evaluacion.fecha.month
+                    if 7 <= mes <= 12:  # Julio a Diciembre = Segundo Semestre
+                        evaluaciones_segundo.append(evaluacion)
+                
+                if evaluaciones_segundo:
+                    rac_table_data_segundo = [["RAC", "Descripción", "Profesor", "Puntaje", "GACs"]]
+                    for evaluacion in evaluaciones_segundo:
+                        # Truncar descripción si es muy larga
+                        descripcion = evaluacion.rac.descripcion
+                        if len(descripcion) > 45:
+                            descripcion = descripcion[:45] + "..."
+                        
+                        # Truncar nombre de profesor si es muy largo
+                        profesor = evaluacion.profesor.nombre
+                        if len(profesor) > 25:
+                            profesor = profesor[:25] + "..."
+                        
+                        rac_table_data_segundo.append([
+                            Paragraph(f"<b>RAC {evaluacion.rac.numero}</b>", cell_style_center),
+                            Paragraph(descripcion, cell_style),
+                            Paragraph(profesor, cell_style),
+                            Paragraph(f"<b>{evaluacion.puntaje}/5</b>", cell_style_center),
+                            Paragraph(", ".join([f"GAC {gac.numero}" for gac in evaluacion.rac.gacs.all()]), cell_style_center)
+                        ])
+                    
+                    rac_table_segundo = Table(rac_table_data_segundo, colWidths=[0.6*inch, 2.4*inch, 1.5*inch, 0.6*inch, 1.4*inch])
+                    rac_table_segundo.setStyle(TableStyle([
+                        ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
+                        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                        ('ALIGN', (1, 1), (1, -1), 'LEFT'),
+                        ('ALIGN', (2, 1), (2, -1), 'LEFT'),
+                        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                        ('FONTSIZE', (0, 0), (-1, 0), 9),
+                        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                        ('TOPPADDING', (0, 0), (-1, -1), 6),
+                        ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                        ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
+                    ]))
+                    story.append(rac_table_segundo)
+                else:
+                    story.append(Paragraph("No hay evaluaciones registradas para este período.", estilos['texto']))
+                
+                story.append(Spacer(1, 15))
+        
+        # Si no es estudiante de segundo semestre, mostrar tabla normal
+        elif rac_data:
+            print("Agregando evaluaciones detalladas por RAC (estudiante de primer semestre)...")
             story.append(Paragraph("📋 Evaluaciones Detalladas por RAC (Resultado de Aprendizaje Clave)", estilos['subtitulo']))
             story.append(Spacer(1, 10))
             
