@@ -470,99 +470,6 @@ const ResultadosEstudiantesPage = () => {
           </div>
         </div>
 
-        {/* Diagrama de evolución entre semestres */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h4 className="text-lg font-semibold text-gray-800 mb-4">
-              Evolución de Calificaciones por Profesor
-            </h4>
-            <ResponsiveContainer width="100%" height={350}>
-              <ScatterChart data={generarDatosEvolucion(resultadosPorSemestre)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="x" 
-                  name="Profesor"
-                  label={{ value: 'Profesor (Orden)', position: 'insideBottom', offset: -5 }}
-                />
-                <YAxis 
-                  dataKey="y" 
-                  name="Promedio"
-                  domain={[0, 5]}
-                  label={{ value: 'Promedio', angle: -90, position: 'insideLeft' }}
-                />
-                <Tooltip 
-                  cursor={{ strokeDasharray: '3 3' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
-                          <p className="font-semibold">{data.profesor}</p>
-                          <p className="text-sm text-gray-600">{data.semestre}</p>
-                          <p className="text-sm">Promedio: <span className="font-medium">{data.y}</span></p>
-                          <p className="text-sm">Evaluaciones: <span className="font-medium">{data.evaluaciones}</span></p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Legend />
-                <Scatter 
-                  dataKey="y" 
-                  fill="#8884d8" 
-                  name="Primer Semestre"
-                  data={generarDatosEvolucion(resultadosPorSemestre).filter(d => d.semestre === 'Primer Semestre')}
-                />
-                <Scatter 
-                  dataKey="y" 
-                  fill="#82ca9d" 
-                  name="Segundo Semestre"
-                  data={generarDatosEvolucion(resultadosPorSemestre).filter(d => d.semestre === 'Segundo Semestre')}
-                />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h4 className="text-lg font-semibold text-gray-800 mb-4">
-              Evolución Temporal del Rendimiento
-            </h4>
-            <ResponsiveContainer width="100%" height={350}>
-              <LineChart data={generarDatosTemporal(resultadosPorSemestre)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="semestre" />
-                <YAxis domain={[0, 5]} />
-                <Tooltip 
-                  content={({ active, payload, label }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="bg-white p-3 border border-gray-300 rounded shadow-lg">
-                          <p className="font-semibold">{label}</p>
-                          <p className="text-sm">Promedio: <span className="font-medium text-blue-600">{data.promedio}</span></p>
-                          <p className="text-sm">Evaluaciones: <span className="font-medium">{data.evaluaciones}</span></p>
-                          <p className="text-sm">Estudiantes: <span className="font-medium">{data.estudiantes}</span></p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="promedio" 
-                  stroke="#2563eb" 
-                  strokeWidth={3}
-                  dot={{ fill: '#2563eb', strokeWidth: 2, r: 6 }}
-                  activeDot={{ r: 8, stroke: '#2563eb', strokeWidth: 2 }}
-                  name="Promedio General"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
         {/* Tabla de evaluaciones detalladas del semestre */}
         <div>
@@ -744,7 +651,7 @@ const ResultadosEstudiantesPage = () => {
                     </h3>
                     <div className="h-80">
                       <ResponsiveContainer width="100%" height="100%">
-                        <ScatterChart data={resultadosPorSemestre.evolucion_grafico}>
+                        <LineChart data={resultadosPorSemestre.evolucion_grafico}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis 
                             dataKey="periodo" 
@@ -771,12 +678,15 @@ const ResultadosEstudiantesPage = () => {
                               return null;
                             }}
                           />
-                          <Scatter 
+                          <Line 
+                            type="monotone" 
                             dataKey="promedio" 
-                            fill="#8884d8"
-                            r={8}
+                            stroke="#8884d8" 
+                            strokeWidth={3}
+                            dot={{ r: 6, fill: "#8884d8" }}
+                            activeDot={{ r: 8, stroke: "#8884d8", strokeWidth: 2 }}
                           />
-                        </ScatterChart>
+                        </LineChart>
                       </ResponsiveContainer>
                     </div>
                   </div>

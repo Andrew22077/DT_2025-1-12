@@ -3014,6 +3014,14 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
             print(f"Error: Estudiante con ID {estudiante_id} no encontrado")
             return Response({'error': 'Estudiante no encontrado'}, status=404)
         
+        # Obtener datos del estudiante usando la función de resultados por semestre
+        print("Obteniendo datos del estudiante por semestre...")
+        datos_estudiante = obtener_resultados_estudiante_por_semestre_interno(estudiante_id)
+        
+        # Verificar si es estudiante de segundo semestre
+        segundo_semestre_grupos = ['2A', '2B', '2C']
+        es_segundo_semestre = estudiante.grupo in segundo_semestre_grupos
+        
         # Obtener evaluaciones del estudiante
         print("Obteniendo evaluaciones del estudiante...")
         evaluaciones = Evaluacion.objects.filter(
@@ -3105,6 +3113,69 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
         ]))
         story.append(tabla_info)
         story.append(Spacer(1, 20))
+
+        # Agregar evolución entre periodos si es estudiante de segundo semestre
+        if es_segundo_semestre and datos_estudiante.get('primer_semestre') and datos_estudiante.get('segundo_semestre'):
+            print("Agregando evolución entre periodos al PDF...")
+            story.append(Paragraph("📈 Evolución de Calificaciones por Período", estilos['subtitulo']))
+            story.append(Spacer(1, 10))
+            
+            # Crear tabla de evolución
+            evolucion_data = [["Período", "Promedio", "Evaluaciones", "Evolución"]]
+            
+            primer_semestre = datos_estudiante['primer_semestre']
+            segundo_semestre = datos_estudiante['segundo_semestre']
+            
+            # Primer semestre
+            if primer_semestre.get('resumen_general', {}).get('promedio_general', 0) > 0:
+                evolucion_data.append([
+                    primer_semestre.get('semestre', 'Primer Semestre'),
+                    f"{primer_semestre['resumen_general']['promedio_general']:.2f}",
+                    str(primer_semestre['resumen_general']['total_evaluaciones']),
+                    "Primer período"
+                ])
+            
+            # Segundo semestre
+            if segundo_semestre.get('resumen_general', {}).get('promedio_general', 0) > 0:
+                promedio_segundo = segundo_semestre['resumen_general']['promedio_general']
+                promedio_primer = primer_semestre.get('resumen_general', {}).get('promedio_general', 0)
+                
+                evolucion_texto = ""
+                if promedio_primer > 0:
+                    diferencia = promedio_segundo - promedio_primer
+                    if diferencia > 0:
+                        evolucion_texto = f"📈 +{diferencia:.2f}"
+                    elif diferencia < 0:
+                        evolucion_texto = f"📉 {diferencia:.2f}"
+                    else:
+                        evolucion_texto = "➡️ Sin cambio"
+                else:
+                    evolucion_texto = "Primer período"
+                
+                evolucion_data.append([
+                    segundo_semestre.get('semestre', 'Segundo Semestre'),
+                    f"{promedio_segundo:.2f}",
+                    str(segundo_semestre['resumen_general']['total_evaluaciones']),
+                    evolucion_texto
+                ])
+            
+            tabla_evolucion = Table(evolucion_data, colWidths=[2*inch, 1*inch, 1*inch, 1.5*inch])
+            tabla_evolucion.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('LEFTPADDING', (0, 0), (-1, -1), 6),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
+            ]))
+            story.append(tabla_evolucion)
+            story.append(Spacer(1, 15))
         
         # Resultados por GAC con colores
         if gacs_data:
