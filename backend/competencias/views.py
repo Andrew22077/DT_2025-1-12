@@ -555,7 +555,7 @@ def determinar_semestre_por_fecha(fecha_evaluacion, grupo_estudiante):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def resultados_estudiante_por_semestre(request, estudiante_id):
-    """Obtener resultados de un estudiante separados por semestre"""
+    """Obtener resultados de un estudiante separados por semestre basándose en periodos académicos"""
     try:
         estudiante = Estudiante.objects.get(pk=estudiante_id)
         
@@ -567,21 +567,52 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
         grupo_actual = estudiante.grupo
         es_segundo_semestre = grupo_actual in segundo_semestre
         
-        # Obtener todas las evaluaciones del estudiante
-        evaluaciones = Evaluacion.objects.filter(estudiante=estudiante)
+        # Obtener período actual
+        periodo_actual = PeriodoAcademico.get_periodo_actual()
         
-        # Separar evaluaciones por semestre basándose en fechas
-        evaluaciones_primer_semestre = []
-        evaluaciones_segundo_semestre = []
+        # Determinar período anterior para estudiantes de segundo semestre
+        periodo_anterior = None
+        if es_segundo_semestre:
+            if periodo_actual.semestre == 2:  # Si estamos en segundo semestre
+                # El período anterior es el primer semestre del mismo año
+                periodo_anterior = PeriodoAcademico.objects.filter(
+                    año=periodo_actual.año,
+                    semestre=1
+                ).first()
+            elif periodo_actual.semestre == 1:  # Si estamos en primer semestre
+                # El período anterior es el segundo semestre del año anterior
+                periodo_anterior = PeriodoAcademico.objects.filter(
+                    año=periodo_actual.año - 1,
+                    semestre=2
+                ).first()
         
-        for evaluacion in evaluaciones:
-            # Usar la función para determinar el semestre
-            semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
-            
-            if semestre == 'primer_semestre':
-                evaluaciones_primer_semestre.append(evaluacion)
-            else:  # segundo_semestre
-                evaluaciones_segundo_semestre.append(evaluacion)
+        print(f"=== DEBUG EVOLUCIÓN ESTUDIANTE {estudiante_id} ===")
+        print(f"Estudiante: {estudiante.nombre}")
+        print(f"Grupo: {grupo_actual}")
+        print(f"Es segundo semestre: {es_segundo_semestre}")
+        print(f"Período actual: {periodo_actual.codigo if periodo_actual else 'No encontrado'}")
+        print(f"Período anterior: {periodo_anterior.codigo if periodo_anterior else 'No encontrado'}")
+        
+        # Obtener evaluaciones del período actual
+        evaluaciones_periodo_actual = Evaluacion.objects.filter(
+            estudiante=estudiante,
+            periodo=periodo_actual
+        )
+        
+        # Obtener evaluaciones del período anterior (solo para estudiantes de segundo semestre)
+        evaluaciones_periodo_anterior = []
+        if es_segundo_semestre and periodo_anterior:
+            evaluaciones_periodo_anterior = Evaluacion.objects.filter(
+                estudiante=estudiante,
+                periodo=periodo_anterior
+            )
+        
+        print(f"Evaluaciones período actual ({periodo_actual.codigo}): {evaluaciones_periodo_actual.count()}")
+        print(f"Evaluaciones período anterior ({periodo_anterior.codigo if periodo_anterior else 'N/A'}): {len(evaluaciones_periodo_anterior)}")
+        
+        # Separar evaluaciones por semestre basándose en periodos académicos
+        evaluaciones_primer_semestre = list(evaluaciones_periodo_anterior) if es_segundo_semestre else []
+        evaluaciones_segundo_semestre = list(evaluaciones_periodo_actual)
         
         def procesar_evaluaciones(evaluaciones_list, semestre_nombre):
             if not evaluaciones_list:
@@ -664,30 +695,12 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
                 "evaluaciones": evaluaciones_detalle,
             }
         
-        # Procesar datos para cada semestre
-        datos_primer_semestre = procesar_evaluaciones(evaluaciones_primer_semestre, "Primer Semestre")
-        datos_segundo_semestre = procesar_evaluaciones(evaluaciones_segundo_semestre, "Segundo Semestre")
+        # Procesar datos para cada semestre usando nombres de periodos
+        nombre_primer_semestre = periodo_anterior.nombre if periodo_anterior else "Primer Semestre"
+        nombre_segundo_semestre = periodo_actual.nombre if periodo_actual else "Segundo Semestre"
         
-        # Si el estudiante está en segundo semestre, también buscar datos de primer semestre
-        if es_segundo_semestre:
-            # Buscar si hay un estudiante con el mismo documento pero en grupo de primer semestre
-            # Esto asume que el estudiante mantiene el mismo documento
-            try:
-                estudiante_primer_semestre = Estudiante.objects.filter(
-                    documento=estudiante.documento,
-                    grupo__in=primer_semestre
-                ).first()
-                
-                if estudiante_primer_semestre:
-                    evaluaciones_primer_semestre = Evaluacion.objects.filter(
-                        estudiante=estudiante_primer_semestre
-                    )
-                    datos_primer_semestre = procesar_evaluaciones(
-                        list(evaluaciones_primer_semestre), 
-                        "Primer Semestre"
-                    )
-            except Exception as e:
-                print(f"Error buscando estudiante de primer semestre: {e}")
+        datos_primer_semestre = procesar_evaluaciones(evaluaciones_primer_semestre, nombre_primer_semestre)
+        datos_segundo_semestre = procesar_evaluaciones(evaluaciones_segundo_semestre, nombre_segundo_semestre)
         
         data = {
             "estudiante": {
@@ -700,10 +713,10 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
             "primer_semestre": datos_primer_semestre,
             "segundo_semestre": datos_segundo_semestre,
             "clasificacion": {
-                "total_evaluaciones": len(evaluaciones),
+                "total_evaluaciones": len(evaluaciones_primer_semestre) + len(evaluaciones_segundo_semestre),
                 "evaluaciones_primer_semestre": len(evaluaciones_primer_semestre),
                 "evaluaciones_segundo_semestre": len(evaluaciones_segundo_semestre),
-                "criterio_clasificacion": "Por fecha de evaluación (Enero-Junio: 1er semestre, Julio-Diciembre: 2do semestre)"
+                "criterio_clasificacion": "Por períodos académicos (basado en periodos académicos reales)"
             }
         }
         
@@ -936,7 +949,7 @@ def descargar_pdf_estudiantes_por_semestre(request):
 
 
 def obtener_resultados_estudiante_por_semestre_interno(estudiante_id):
-    """Función interna para obtener resultados por semestre (sin decoradores)"""
+    """Función interna para obtener resultados por semestre basándose en periodos académicos"""
     estudiante = Estudiante.objects.get(pk=estudiante_id)
     
     # Definir grupos por semestre
@@ -947,21 +960,42 @@ def obtener_resultados_estudiante_por_semestre_interno(estudiante_id):
     grupo_actual = estudiante.grupo
     es_segundo_semestre = grupo_actual in segundo_semestre
     
-    # Obtener todas las evaluaciones del estudiante
-    evaluaciones = Evaluacion.objects.filter(estudiante=estudiante)
+    # Obtener período actual
+    periodo_actual = PeriodoAcademico.get_periodo_actual()
     
-    # Separar evaluaciones por semestre basándose en fechas
-    evaluaciones_primer_semestre = []
-    evaluaciones_segundo_semestre = []
+    # Determinar período anterior para estudiantes de segundo semestre
+    periodo_anterior = None
+    if es_segundo_semestre:
+        if periodo_actual.semestre == 2:  # Si estamos en segundo semestre
+            # El período anterior es el primer semestre del mismo año
+            periodo_anterior = PeriodoAcademico.objects.filter(
+                año=periodo_actual.año,
+                semestre=1
+            ).first()
+        elif periodo_actual.semestre == 1:  # Si estamos en primer semestre
+            # El período anterior es el segundo semestre del año anterior
+            periodo_anterior = PeriodoAcademico.objects.filter(
+                año=periodo_actual.año - 1,
+                semestre=2
+            ).first()
     
-    for evaluacion in evaluaciones:
-        # Usar la función para determinar el semestre
-        semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
-        
-        if semestre == 'primer_semestre':
-            evaluaciones_primer_semestre.append(evaluacion)
-        else:  # segundo_semestre
-            evaluaciones_segundo_semestre.append(evaluacion)
+    # Obtener evaluaciones del período actual
+    evaluaciones_periodo_actual = Evaluacion.objects.filter(
+        estudiante=estudiante,
+        periodo=periodo_actual
+    )
+    
+    # Obtener evaluaciones del período anterior (solo para estudiantes de segundo semestre)
+    evaluaciones_periodo_anterior = []
+    if es_segundo_semestre and periodo_anterior:
+        evaluaciones_periodo_anterior = Evaluacion.objects.filter(
+            estudiante=estudiante,
+            periodo=periodo_anterior
+        )
+    
+    # Separar evaluaciones por semestre basándose en periodos académicos
+    evaluaciones_primer_semestre = list(evaluaciones_periodo_anterior) if es_segundo_semestre else []
+    evaluaciones_segundo_semestre = list(evaluaciones_periodo_actual)
     
     def procesar_evaluaciones_interno(evaluaciones_list, semestre_nombre):
         if not evaluaciones_list:
@@ -1019,28 +1053,12 @@ def obtener_resultados_estudiante_por_semestre_interno(estudiante_id):
             "grafico_gacs": grafico_gacs,
         }
     
-    # Procesar datos para cada semestre
-    datos_primer_semestre = procesar_evaluaciones_interno(evaluaciones_primer_semestre, "Primer Semestre")
-    datos_segundo_semestre = procesar_evaluaciones_interno(evaluaciones_segundo_semestre, "Segundo Semestre")
+    # Procesar datos para cada semestre usando nombres de periodos
+    nombre_primer_semestre = periodo_anterior.nombre if periodo_anterior else "Primer Semestre"
+    nombre_segundo_semestre = periodo_actual.nombre if periodo_actual else "Segundo Semestre"
     
-    # Si el estudiante está en segundo semestre, también buscar datos de primer semestre
-    if es_segundo_semestre:
-        try:
-            estudiante_primer_semestre = Estudiante.objects.filter(
-                documento=estudiante.documento,
-                grupo__in=primer_semestre
-            ).first()
-            
-            if estudiante_primer_semestre:
-                evaluaciones_primer_semestre = Evaluacion.objects.filter(
-                    estudiante=estudiante_primer_semestre
-                )
-                datos_primer_semestre = procesar_evaluaciones_interno(
-                    list(evaluaciones_primer_semestre), 
-                    "Primer Semestre"
-                )
-        except Exception as e:
-            print(f"Error buscando estudiante de primer semestre: {e}")
+    datos_primer_semestre = procesar_evaluaciones_interno(evaluaciones_primer_semestre, nombre_primer_semestre)
+    datos_segundo_semestre = procesar_evaluaciones_interno(evaluaciones_segundo_semestre, nombre_segundo_semestre)
     
     return {
         "primer_semestre": datos_primer_semestre,
