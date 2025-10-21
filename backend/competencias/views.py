@@ -3566,16 +3566,16 @@ def generar_pdf_informe_profesor(datos_informe):
             gacs_estudiantes_data = []
             
             # Header de la tabla
-            header_gacs = ['Estudiante', 'GAC 1', 'GAC 2', 'GAC 3', 'GAC 4', 'GAC 5', 'GAC 6']
+            header_gacs = ['Estudiante', 'GAC 1', 'GAC 2', 'GAC 3']
             gacs_estudiantes_data.append(header_gacs)
             
             # Datos de GACs por estudiante
             for estudiante_id, data in list(datos_informe['estudiantes'].items())[:10]:
                 estudiante = data['estudiante']
-                fila_gacs = [str(estudiante.nombre)[:20]]  # Nombre truncado
+                fila_gacs = [str(estudiante.nombre)[:25]]  # Nombre truncado
                 
-                # Agregar promedios por GAC (1-6)
-                for gac_num in range(1, 7):
+                # Agregar promedios por GAC (1-3)
+                for gac_num in range(1, 4):
                     if gac_num in data['gacs']:
                         promedio_gac = data['gacs'][gac_num]['promedio']
                         fila_gacs.append(f"{promedio_gac:.2f}")
@@ -3584,7 +3584,7 @@ def generar_pdf_informe_profesor(datos_informe):
                 
                 gacs_estudiantes_data.append(fila_gacs)
             
-            tabla_gacs_estudiantes = Table(gacs_estudiantes_data, colWidths=[1.5*inch, 0.7*inch, 0.7*inch, 0.7*inch, 0.7*inch, 0.7*inch, 0.7*inch])
+            tabla_gacs_estudiantes = Table(gacs_estudiantes_data, colWidths=[2.5*inch, 1*inch, 1*inch, 1*inch])
             tabla_gacs_estudiantes.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
