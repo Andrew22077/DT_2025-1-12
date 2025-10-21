@@ -2956,38 +2956,64 @@ def descargar_pdf_estudiante_individual(request, estudiante_id):
             story.append(Paragraph("📋 Evaluaciones Detalladas por RAC (Resultado de Aprendizaje Clave)", estilos['subtitulo']))
             story.append(Spacer(1, 10))
             
+            # Obtener estilos base de reportlab
+            styles_base = getSampleStyleSheet()
+            
+            # Estilo para texto dentro de celdas
+            cell_style = ParagraphStyle(
+                'CellStyle',
+                parent=styles_base['Normal'],
+                fontSize=8,
+                leading=10,
+                alignment=TA_LEFT
+            )
+            
+            cell_style_center = ParagraphStyle(
+                'CellStyleCenter',
+                parent=styles_base['Normal'],
+                fontSize=8,
+                leading=10,
+                alignment=TA_CENTER
+            )
+            
             rac_table_data = [["RAC", "Descripción", "Profesor", "Puntaje", "GACs"]]
             for rac in rac_data:
                 # Truncar descripción si es muy larga, manteniendo palabras completas
                 descripcion = rac['descripcion']
-                if len(descripcion) > 60:
-                    descripcion = descripcion[:60]
+                if len(descripcion) > 50:
+                    descripcion = descripcion[:50]
                     # Buscar el último espacio para no cortar palabras
                     ultimo_espacio = descripcion.rfind(' ')
-                    if ultimo_espacio > 40:  # Solo si no es muy corto
+                    if ultimo_espacio > 35:  # Solo si no es muy corto
                         descripcion = descripcion[:ultimo_espacio]
                     descripcion += "..."
+                
+                # Truncar nombre de profesor si es muy largo
+                profesor = rac['profesor']
+                if len(profesor) > 30:
+                    profesor = profesor[:30] + "..."
+                
                 rac_table_data.append([
-                    f"RAC {rac['numero']}",
-                    descripcion,
-                    rac['profesor'],
-                    f"{rac['puntaje']}/5",
-                    ", ".join([f"GAC {gac}" for gac in rac['gacs']])
+                    Paragraph(f"<b>RAC {rac['numero']}</b>", cell_style_center),
+                    Paragraph(descripcion, cell_style),
+                    Paragraph(profesor, cell_style),
+                    Paragraph(f"<b>{rac['puntaje']}/5</b>", cell_style_center),
+                    Paragraph(", ".join([f"GAC {gac}" for gac in rac['gacs']]), cell_style_center)
                 ])
             
-            rac_table = Table(rac_table_data, colWidths=[0.7*inch, 2.8*inch, 1.2*inch, 0.7*inch, 1.1*inch])
+            rac_table = Table(rac_table_data, colWidths=[0.6*inch, 2.4*inch, 1.5*inch, 0.6*inch, 1.4*inch])
             rac_table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.darkgreen),
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('ALIGN', (1, 1), (1, -1), 'LEFT'),  # Alineación izquierda para descripción
+                ('ALIGN', (2, 1), (2, -1), 'LEFT'),  # Alineación izquierda para profesor
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 10),
-                ('FONTSIZE', (0, 1), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('LEFTPADDING', (0, 0), (-1, -1), 6),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+                ('FONTSIZE', (0, 0), (-1, 0), 9),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
                 ('GRID', (0, 0), (-1, -1), 1, colors.black),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
@@ -3301,6 +3327,14 @@ def descargar_informe_profesor_individual(request, profesor_id):
         # Obtener período actual
         periodo_actual = PeriodoAcademico.get_periodo_actual()
         
+        print(f"=== DEBUG DATOS PROFESOR ===")
+        print(f"Profesor: {profesor.nombre}")
+        print(f"Total evaluaciones: {total_evaluaciones}")
+        print(f"Total estudiantes: {total_estudiantes}")
+        print(f"Promedio general: {promedio_general}")
+        print(f"Materias encontradas: {len(materias_stats)}")
+        print(f"Estudiantes encontrados: {len(estudiantes_detalle)}")
+        
         # Preparar datos para el PDF
         datos_informe = {
             'profesor': profesor,
@@ -3317,17 +3351,38 @@ def descargar_informe_profesor_individual(request, profesor_id):
             'evaluaciones_detalladas': list(evaluaciones)
         }
         
+        print("Datos preparados, llamando a generar_pdf_informe_profesor...")
+        
         # Generar PDF
         return generar_pdf_informe_profesor(datos_informe)
         
     except Exception as e:
-        logger.error(f"Error generando informe individual de profesor: {str(e)}")
+        print(f"Error generando informe individual de profesor: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return Response({'error': f'Error generando informe: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def generar_pdf_informe_profesor(datos_informe):
     """Generar PDF del informe individual de profesor"""
     try:
+        # Importaciones necesarias
+        from reportlab.lib.pagesizes import A4
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.lib import colors
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        from io import BytesIO
+        from django.http import HttpResponse
+        from datetime import datetime
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        print("=== DEBUG PDF PROFESOR INDIVIDUAL ===")
+        print(f"Datos del informe recibidos: {list(datos_informe.keys())}")
+        
         # Crear buffer para el PDF
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*inch)
@@ -3485,17 +3540,34 @@ def generar_pdf_informe_profesor(datos_informe):
             story.append(tabla_estudiantes)
         
         # Construir PDF
-        doc.build(story)
+        print(f"Construyendo PDF con {len(story)} elementos...")
+        try:
+            doc.build(story)
+            print("PDF construido exitosamente")
+        except Exception as build_error:
+            print(f"Error al construir PDF: {build_error}")
+            raise build_error
+        
         buffer.seek(0)
+        pdf_content = buffer.getvalue()
+        print(f"PDF generado con {len(pdf_content)} bytes")
         
         # Crear respuesta HTTP
-        response = HttpResponse(buffer.getvalue(), content_type='application/pdf')
+        response = HttpResponse(pdf_content, content_type='application/pdf')
         filename = f"informe_profesor_{profesor.nombre.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Length'] = len(pdf_content)
         
+        print(f"Respuesta HTTP creada con archivo: {filename}")
         return response
         
     except Exception as e:
-        logger.error(f"Error generando PDF de informe de profesor: {str(e)}")
-        # Devolver respuesta de error en lugar de Response de DRF
-        return HttpResponse(f'Error generando PDF: {str(e)}', content_type='text/plain', status=500)
+        print(f"Error generando PDF de informe de profesor: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Crear respuesta de error más detallada
+        error_content = f"Error generando PDF del informe del profesor:\n\n{str(e)}\n\nTraceback:\n{traceback.format_exc()}"
+        response = HttpResponse(error_content, content_type='text/plain', status=500)
+        response['Content-Disposition'] = 'attachment; filename="error_informe_profesor.txt"'
+        return response
