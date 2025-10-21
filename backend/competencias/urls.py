@@ -47,7 +47,7 @@ urlpatterns = [
     path('api/periodos/crear/', views.crear_periodo_academico, name='crear_periodo_academico'),
     
     # URL para informe individual de profesor
-    path('api/profesor/<int:profesor_id>/informe/', views.descargar_informe_profesor_individual, name='informe_profesor_individual'),
+    path('api/pdf/profesor-individual/<int:profesor_id>/', views.descargar_informe_profesor_individual, name='descargar_informe_profesor_individual'),
 
     # Router URLs después (más generales)
     path('api/', include(router.urls)),

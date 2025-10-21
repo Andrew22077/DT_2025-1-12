@@ -184,7 +184,8 @@ const Informes = () => {
       // Mostrar mensaje de carga
       toast.loading('Generando informe del profesor...', { id: 'descargando-informe' });
 
-      const response = await fetch(`/competencias/api/profesor/${profesorId}/informe/`, {
+      // Usar la URL correcta del endpoint
+      const response = await fetch(`/competencias/api/pdf/profesor-individual/${profesorId}/`, {
         headers: {
           'Authorization': `Token ${token}`,
         },
