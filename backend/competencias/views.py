@@ -524,6 +524,62 @@ def resultados_estudiante(request, estudiante_id):
         return JsonResponse({"error": "Estudiante no encontrado"}, status=404)
 
 
+def obtener_datos_gacs_detallados(evaluaciones_list, nombre_periodo):
+    """Obtener datos detallados por GAC para un período específico"""
+    if not evaluaciones_list:
+        return {
+            "periodo": nombre_periodo,
+            "gacs": [],
+            "resumen": {
+                "promedio_general": 0,
+                "total_evaluaciones": 0,
+                "gacs_evaluados": 0
+            }
+        }
+    
+    # Agrupar evaluaciones por GAC
+    gacs_data = {}
+    total_puntajes = []
+    
+    for evaluacion in evaluaciones_list:
+        total_puntajes.append(evaluacion.puntaje)
+        
+        # Obtener GACs del RAC
+        for gac in evaluacion.rac.gacs.all():
+            if gac.numero not in gacs_data:
+                gacs_data[gac.numero] = {
+                    "numero": gac.numero,
+                    "descripcion": gac.descripcion,
+                    "puntajes": [],
+                    "promedio": 0,
+                    "total_evaluaciones": 0
+                }
+            
+            gacs_data[gac.numero]["puntajes"].append(evaluacion.puntaje)
+            gacs_data[gac.numero]["total_evaluaciones"] += 1
+    
+    # Calcular promedios por GAC
+    for gac_num, gac_data in gacs_data.items():
+        if gac_data["puntajes"]:
+            gac_data["promedio"] = round(sum(gac_data["puntajes"]) / len(gac_data["puntajes"]), 2)
+    
+    # Ordenar GACs por número
+    gacs_ordenados = sorted(gacs_data.values(), key=lambda x: x["numero"])
+    
+    # Calcular promedio general
+    promedio_general = round(sum(total_puntajes) / len(total_puntajes), 2) if total_puntajes else 0
+    
+    return {
+        "periodo": nombre_periodo,
+        "gacs": gacs_ordenados,
+        "resumen": {
+            "promedio_general": promedio_general,
+            "total_evaluaciones": len(evaluaciones_list),
+            "gacs_evaluados": len(gacs_data)
+        }
+    }
+
+
 def determinar_semestre_por_fecha(fecha_evaluacion, grupo_estudiante):
     """
     Determina si una evaluación pertenece al primer o segundo semestre
@@ -762,6 +818,33 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
         datos_primer_semestre = procesar_evaluaciones(evaluaciones_primer_semestre, nombre_primer_semestre)
         datos_segundo_semestre = procesar_evaluaciones(evaluaciones_segundo_semestre, nombre_segundo_semestre)
         
+        # Crear datos para gráfico de evolución
+        datos_evolucion = []
+        
+        # Agregar datos del primer semestre si existen
+        if evaluaciones_primer_semestre:
+            promedio_primer = sum(eval.puntaje for eval in evaluaciones_primer_semestre) / len(evaluaciones_primer_semestre)
+            datos_evolucion.append({
+                "periodo": nombre_primer_semestre,
+                "promedio": round(promedio_primer, 2),
+                "evaluaciones": len(evaluaciones_primer_semestre)
+            })
+        
+        # Agregar datos del segundo semestre si existen
+        if evaluaciones_segundo_semestre:
+            promedio_segundo = sum(eval.puntaje for eval in evaluaciones_segundo_semestre) / len(evaluaciones_segundo_semestre)
+            datos_evolucion.append({
+                "periodo": nombre_segundo_semestre,
+                "promedio": round(promedio_segundo, 2),
+                "evaluaciones": len(evaluaciones_segundo_semestre)
+            })
+        
+        # Crear datos detallados por GAC para cada período
+        datos_gacs_detallados = {
+            "primer_semestre": obtener_datos_gacs_detallados(evaluaciones_primer_semestre, nombre_primer_semestre),
+            "segundo_semestre": obtener_datos_gacs_detallados(evaluaciones_segundo_semestre, nombre_segundo_semestre)
+        }
+        
         data = {
             "estudiante": {
                 "id": estudiante.id,
@@ -772,6 +855,8 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
             },
             "primer_semestre": datos_primer_semestre,
             "segundo_semestre": datos_segundo_semestre,
+            "evolucion_grafico": datos_evolucion,
+            "gacs_detallados": datos_gacs_detallados,
             "clasificacion": {
                 "total_evaluaciones": len(evaluaciones_primer_semestre) + len(evaluaciones_segundo_semestre),
                 "evaluaciones_primer_semestre": len(evaluaciones_primer_semestre),

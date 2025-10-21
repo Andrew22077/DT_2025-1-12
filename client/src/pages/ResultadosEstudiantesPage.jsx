@@ -117,6 +117,143 @@ const ResultadosEstudiantesPage = () => {
     return gruposSegundoSemestre.includes(grupo);
   };
 
+  // Función para renderizar la tabla detallada de GACs por período
+  const renderTablaGACsDetallada = (gacsDetallados) => {
+    if (!gacsDetallados) return null;
+
+    const primerSemestre = gacsDetallados.primer_semestre;
+    const segundoSemestre = gacsDetallados.segundo_semestre;
+
+    // Crear un mapa de GACs para facilitar la comparación
+    const gacsMap = new Map();
+    
+    // Procesar GACs del primer semestre
+    if (primerSemestre && primerSemestre.gacs) {
+      primerSemestre.gacs.forEach(gac => {
+        gacsMap.set(gac.numero, {
+          numero: gac.numero,
+          descripcion: gac.descripcion,
+          primer_semestre: {
+            promedio: gac.promedio,
+            evaluaciones: gac.total_evaluaciones
+          }
+        });
+      });
+    }
+
+    // Procesar GACs del segundo semestre
+    if (segundoSemestre && segundoSemestre.gacs) {
+      segundoSemestre.gacs.forEach(gac => {
+        if (gacsMap.has(gac.numero)) {
+          gacsMap.get(gac.numero).segundo_semestre = {
+            promedio: gac.promedio,
+            evaluaciones: gac.total_evaluaciones
+          };
+        } else {
+          gacsMap.set(gac.numero, {
+            numero: gac.numero,
+            descripcion: gac.descripcion,
+            segundo_semestre: {
+              promedio: gac.promedio,
+              evaluaciones: gac.total_evaluaciones
+            }
+          });
+        }
+      });
+    }
+
+    const gacsArray = Array.from(gacsMap.values()).sort((a, b) => a.numero - b.numero);
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                GAC
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Descripción
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {primerSemestre?.periodo || "Primer Semestre"}
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                {segundoSemestre?.periodo || "Segundo Semestre"}
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Diferencia
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Evolución
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {gacsArray.map((gac) => {
+              const diferencia = (gac.segundo_semestre?.promedio || 0) - (gac.primer_semestre?.promedio || 0);
+              const evolucion = diferencia > 0 ? "📈" : diferencia < 0 ? "📉" : "➡️";
+              const colorEvolucion = diferencia > 0 ? "text-green-600" : diferencia < 0 ? "text-red-600" : "text-gray-600";
+
+              return (
+                <tr key={gac.numero} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    GAC {gac.numero}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
+                    {gac.descripcion}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    {gac.primer_semestre ? (
+                      <div>
+                        <div className={`text-lg font-bold ${getColorByPuntaje(gac.primer_semestre.promedio)}`}>
+                          {gac.primer_semestre.promedio.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          ({gac.primer_semestre.evaluaciones} eval.)
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    {gac.segundo_semestre ? (
+                      <div>
+                        <div className={`text-lg font-bold ${getColorByPuntaje(gac.segundo_semestre.promedio)}`}>
+                          {gac.segundo_semestre.promedio.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          ({gac.segundo_semestre.evaluaciones} eval.)
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    {gac.primer_semestre && gac.segundo_semestre ? (
+                      <div className={`text-lg font-bold ${colorEvolucion}`}>
+                        {diferencia > 0 ? '+' : ''}{diferencia.toFixed(2)}
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <span className={`text-2xl ${colorEvolucion}`}>
+                      {evolucion}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   useEffect(() => {
     cargarEstudiantes();
   }, []);
@@ -599,6 +736,62 @@ const ResultadosEstudiantesPage = () => {
             {/* Mostrar resultados por semestre si aplica */}
             {resultadosPorSemestre ? (
               <div className="space-y-6">
+                {/* Gráfico de Evolución entre Periodos */}
+                {resultadosPorSemestre.evolucion_grafico && resultadosPorSemestre.evolucion_grafico.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                      📈 Evolución de Calificaciones por Período
+                    </h3>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ScatterChart data={resultadosPorSemestre.evolucion_grafico}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis 
+                            dataKey="periodo" 
+                            name="Período"
+                            tick={{ fontSize: 12 }}
+                          />
+                          <YAxis 
+                            domain={[0, 5]}
+                            name="Promedio"
+                            tick={{ fontSize: 12 }}
+                          />
+                          <Tooltip 
+                            content={({ active, payload }) => {
+                              if (active && payload && payload.length) {
+                                const data = payload[0].payload;
+                                return (
+                                  <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
+                                    <p className="font-semibold text-gray-800">{data.periodo}</p>
+                                    <p className="text-blue-600">Promedio: {data.promedio}</p>
+                                    <p className="text-gray-600">Evaluaciones: {data.evaluaciones}</p>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Scatter 
+                            dataKey="promedio" 
+                            fill="#8884d8"
+                            r={8}
+                          />
+                        </ScatterChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tabla Detallada de GACs por Período */}
+                {resultadosPorSemestre.gacs_detallados && (
+                  <div className="bg-white rounded-lg shadow-md p-6">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                      📊 Calificaciones Detalladas por GAC por Período
+                    </h3>
+                    {renderTablaGACsDetallada(resultadosPorSemestre.gacs_detallados)}
+                  </div>
+                )}
+
                 {/* Resultados de Primer Semestre */}
                 {renderResultadosSemestre(
                   resultadosPorSemestre.primer_semestre,
