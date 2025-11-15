@@ -47,6 +47,8 @@ const ResultadosEstudiantesPage = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#845EC2"];
+  const GAC_LINE_COLORS = ["#F97316", "#10B981", "#EF4444"];
+  const evolucionTopGacs = resultadosPorSemestre?.evolucion_top_gacs || [];
 
   // Función para generar datos del diagrama de dispersión de evolución
   const generarDatosEvolucion = (resultadosPorSemestre) => {
@@ -664,28 +666,56 @@ const ResultadosEstudiantesPage = () => {
                             tick={{ fontSize: 12 }}
                           />
                           <Tooltip 
-                            content={({ active, payload }) => {
-                              if (active && payload && payload.length) {
-                                const data = payload[0].payload;
-                                return (
-                                  <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg">
-                                    <p className="font-semibold text-gray-800">{data.periodo}</p>
-                                    <p className="text-blue-600">Promedio: {data.promedio}</p>
-                                    <p className="text-gray-600">Evaluaciones: {data.evaluaciones}</p>
-                                  </div>
-                                );
+                            content={({ active, payload, label }) => {
+                              if (!active || !payload || !payload.length) {
+                                return null;
                               }
-                              return null;
+                              const punto = payload[0]?.payload || {};
+                              return (
+                                <div className="bg-white p-3 border border-gray-200 rounded-lg shadow-lg text-xs sm:text-sm">
+                                  <p className="font-semibold text-gray-800">{label}</p>
+                                  <p className="text-gray-500 mb-2">Evaluaciones: {punto.evaluaciones || 0}</p>
+                                  {payload.map((item) => (
+                                    <div
+                                      key={item.dataKey}
+                                      className="flex items-center justify-between gap-6"
+                                      style={{ color: item.stroke || "#111827" }}
+                                    >
+                                      <span>{item.name}</span>
+                                      <span>
+                                        {item.value !== null && item.value !== undefined
+                                          ? Number(item.value).toFixed(2)
+                                          : "Sin datos"}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
                             }}
                           />
+                          <Legend />
                           <Line 
                             type="monotone" 
                             dataKey="promedio" 
-                            stroke="#8884d8" 
+                            name="Promedio General"
+                            stroke="#6366F1" 
                             strokeWidth={3}
-                            dot={{ r: 6, fill: "#8884d8" }}
-                            activeDot={{ r: 8, stroke: "#8884d8", strokeWidth: 2 }}
+                            dot={{ r: 6, fill: "#6366F1" }}
+                            activeDot={{ r: 8, stroke: "#312E81", strokeWidth: 2 }}
                           />
+                          {evolucionTopGacs.map((gac, index) => (
+                            <Line
+                              key={gac.key}
+                              type="monotone"
+                              dataKey={gac.key}
+                              name={gac.label}
+                              stroke={GAC_LINE_COLORS[index % GAC_LINE_COLORS.length]}
+                              strokeWidth={2}
+                              dot={{ r: 4 }}
+                              activeDot={{ r: 6 }}
+                              connectNulls
+                            />
+                          ))}
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
