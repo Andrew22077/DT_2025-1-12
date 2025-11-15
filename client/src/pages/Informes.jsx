@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useEvaluacionApi } from "../api/EvaluacionApi";
 import { useAuth } from "../api/Auth";
 import {
@@ -7,9 +7,11 @@ import {
   FaGraduationCap,
   FaCheckCircle,
   FaChalkboardTeacher,
-  FaEye,
   FaCircle,
   FaDownload,
+  FaChevronDown,
+  FaChevronUp,
+  FaSyncAlt,
   FaBook,
   FaBookOpen,
   FaCalendarAlt,
@@ -55,15 +57,13 @@ const Informes = () => {
   const [gacsSemestre, setGacsSemestre] = useState(null);
   const [profesoresMaterias, setProfesoresMaterias] = useState(null);
   const [estudiantesProfesores, setEstudiantesProfesores] = useState(null);
-  const [detalleProfesorMateria, setDetalleProfesorMateria] = useState(null);
-  const [mostrarDetalle, setMostrarDetalle] = useState(false);
+  const [profesorExpandido, setProfesorExpandido] = useState(null);
+  const [detallesProfesorMateria, setDetallesProfesorMateria] = useState({});
+  const [cargandoDetalleProfesor, setCargandoDetalleProfesor] = useState(null);
   
   // Estados para funcionalidad de semestres en estudiantes
   const [resultadosPorEstudiante, setResultadosPorEstudiante] = useState({});
   const [cargandoResultados, setCargandoResultados] = useState({});
-  
-  // Estados para modal de detalles del estudiante
-  const [estudianteSeleccionado, setEstudianteSeleccionado] = useState(null);
 
   useEffect(() => {
     cargarResultados();
@@ -84,6 +84,271 @@ const Informes = () => {
       cargarResultadosTodosEstudiantes();
     }
   }, [activeTab, estudiantesProfesores]);
+
+  const profesoresAgrupados = useMemo(() => {
+    const listado = Array.isArray(profesoresMaterias)
+      ? profesoresMaterias
+      : profesoresMaterias?.profesores_materias;
+
+    if (!listado?.length) return [];
+
+    const agrupados = listado.reduce((acc, item) => {
+      if (!acc[item.profesor_id]) {
+        acc[item.profesor_id] = {
+          profesor_id: item.profesor_id,
+          profesor_nombre: item.profesor_nombre,
+          materias: [],
+        };
+      }
+      acc[item.profesor_id].materias.push(item);
+      return acc;
+    }, {});
+
+    return Object.values(agrupados)
+      .map((profesor) => {
+        const totalMaterias = profesor.materias.length;
+        const promedioGeneral =
+          totalMaterias > 0
+            ? profesor.materias.reduce(
+                (sum, materia) => sum + (materia.promedio || 0),
+                0
+              ) / totalMaterias
+            : 0;
+        const estudiantesEvaluados = profesor.materias.reduce(
+          (sum, materia) => sum + (materia.estudiantes_evaluados || 0),
+          0
+        );
+        const totalEstudiantes = profesor.materias.reduce(
+          (sum, materia) => sum + (materia.total_estudiantes || 0),
+          0
+        );
+
+        return {
+          ...profesor,
+          promedio_general: Number(promedioGeneral.toFixed(2)),
+          total_materias: totalMaterias,
+          estudiantes_evaluados: estudiantesEvaluados,
+          total_estudiantes: totalEstudiantes,
+        };
+      })
+      .sort((a, b) => a.profesor_nombre.localeCompare(b.profesor_nombre));
+  }, [profesoresMaterias]);
+
+  const getProfesorMateriaKey = (profesorId, materiaId) =>
+    `${profesorId}_${materiaId}`;
+
+  const cargarDetalleMateria = async (
+    profesorId,
+    materiaId,
+    { forzar = false } = {}
+  ) => {
+    const key = getProfesorMateriaKey(profesorId, materiaId);
+    if (!forzar && detallesProfesorMateria[key]) {
+      return;
+    }
+
+    try {
+      setCargandoDetalleProfesor(profesorId);
+      const detalle = await evaluacionApi.obtenerDetalleProfesorMateria(
+        profesorId,
+        materiaId
+      );
+      setDetallesProfesorMateria((prev) => ({
+        ...prev,
+        [key]: detalle,
+      }));
+    } catch (error) {
+      console.error(
+        `Error cargando detalle del profesor ${profesorId} en materia ${materiaId}:`,
+        error
+      );
+      toast.error(
+        "Error al cargar la información detallada del profesor. Intenta nuevamente."
+      );
+    } finally {
+      setCargandoDetalleProfesor(null);
+    }
+  };
+
+  const cargarDetallesProfesor = async (profesorId) => {
+    const profesor = profesoresAgrupados.find(
+      (p) => p.profesor_id === profesorId
+    );
+    if (!profesor) return;
+
+    const pendientes = profesor.materias.filter(
+      (materia) =>
+        !detallesProfesorMateria[
+          getProfesorMateriaKey(profesorId, materia.materia_id)
+        ]
+    );
+
+    if (!pendientes.length) return;
+
+    try {
+      setCargandoDetalleProfesor(profesorId);
+      const detalles = await Promise.all(
+        pendientes.map(async (materia) => {
+          const detalle = await evaluacionApi.obtenerDetalleProfesorMateria(
+            profesorId,
+            materia.materia_id
+          );
+          return [
+            getProfesorMateriaKey(profesorId, materia.materia_id),
+            detalle,
+          ];
+        })
+      );
+
+      setDetallesProfesorMateria((prev) => {
+        const nuevo = { ...prev };
+        detalles.forEach(([key, detalle]) => {
+          nuevo[key] = detalle;
+        });
+        return nuevo;
+      });
+    } catch (error) {
+      console.error(`Error cargando detalles del profesor ${profesorId}:`, error);
+      toast.error("No fue posible cargar todos los detalles del profesor.");
+    } finally {
+      setCargandoDetalleProfesor(null);
+    }
+  };
+
+  const handleToggleProfesor = (profesorId) => {
+    if (profesorExpandido === profesorId) {
+      setProfesorExpandido(null);
+      return;
+    }
+
+    setProfesorExpandido(profesorId);
+    cargarDetallesProfesor(profesorId);
+  };
+
+  const renderEstudiantesMateria = (detalle) => {
+    if (!detalle) {
+      return (
+        <p className="text-sm text-gray-500">
+          Aún no hay información cargada para esta materia. Usa el botón "Actualizar" para obtenerla.
+        </p>
+      );
+    }
+
+    if (!detalle.estudiantes?.length) {
+      return (
+        <p className="text-sm text-gray-500">
+          Este profesor aún no tiene estudiantes evaluados en esta materia.
+        </p>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {detalle.estudiantes.map((estudiante) => (
+          <div
+            key={estudiante.estudiante_id}
+            className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm"
+          >
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+                <p className="text-base font-semibold text-gray-900">
+                  {estudiante.estudiante_nombre}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Grupo: {estudiante.estudiante_grupo}
+                </p>
+              </div>
+              <div className="text-right">
+                <p
+                  className={`text-2xl font-bold ${getColorByPuntaje(
+                    estudiante.promedio || 0
+                  )}`}
+                >
+                  {(estudiante.promedio || 0).toFixed(2)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {convertirCalificacionCualitativa(estudiante.promedio || 0)}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {estudiante.total_evaluaciones} evaluaciones
+                </p>
+              </div>
+            </div>
+
+            {estudiante.evaluaciones?.length > 0 && (
+              <div className="mt-4">
+                <h5 className="text-sm font-semibold text-gray-700 mb-2">
+                  Evaluaciones registradas
+                </h5>
+                <div className="space-y-2">
+                  {estudiante.evaluaciones.map((evaluacion, index) => (
+                    <div
+                      key={`${estudiante.estudiante_id}_${index}`}
+                      className="flex items-center justify-between bg-gray-50 rounded-lg p-3 border border-gray-100"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">
+                          RAC {evaluacion.rac_numero}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {evaluacion.rac_descripcion}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(evaluacion.fecha).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div
+                        className={`text-lg font-bold ${getColorByPuntaje(
+                          evaluacion.puntaje || 0
+                        )}`}
+                      >
+                        {formatearCalificacion(evaluacion.puntaje || 0)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {estudiante.gacs?.length > 0 && (
+              <div className="mt-4">
+                <h5 className="text-sm font-semibold text-gray-700 mb-2">
+                  Desempeño por GAC
+                </h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {estudiante.gacs.map((gac, index) => (
+                    <div
+                      key={`${estudiante.estudiante_id}_gac_${index}`}
+                      className="bg-blue-50 border border-blue-100 rounded-lg p-3"
+                    >
+                      <p className="text-sm font-semibold text-blue-900">
+                        {gac.gac}
+                      </p>
+                      <p className="text-xs text-blue-700 mb-2">
+                        {gac.descripcion}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`text-lg font-bold ${getColorByPuntaje(
+                            gac.promedio || 0
+                          )}`}
+                        >
+                          {(gac.promedio || 0).toFixed(2)}
+                        </span>
+                        <span className="text-xs text-blue-600">
+                          {gac.total_evaluaciones} evals
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   const cargarResultados = async () => {
     try {
@@ -133,28 +398,13 @@ const Informes = () => {
     }
   };
 
-  const cargarDetalleProfesorMateria = async (profesorId, materiaId) => {
-    try {
-      setLoading(true);
-      const datos = await evaluacionApi.obtenerDetalleProfesorMateria(
-        profesorId,
-        materiaId
-      );
-      setDetalleProfesorMateria(datos);
-      setMostrarDetalle(true);
-    } catch (error) {
-      toast.error("Error al cargar detalle: " + (error.message || error));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Función para mostrar modal de información del profesor
   const mostrarInformacionProfesor = (profesorId, profesorNombre) => {
     // Buscar información del profesor en los datos disponibles
-    const profesorInfo = profesoresMaterias?.profesores_materias?.find(
-      p => p.profesor_id === profesorId
-    );
+    const listado = Array.isArray(profesoresMaterias)
+      ? profesoresMaterias
+      : profesoresMaterias?.profesores_materias;
+    const profesorInfo = listado?.find((p) => p.profesor_id === profesorId);
     
     if (profesorInfo) {
       setProfesorSeleccionado({
@@ -301,67 +551,6 @@ const Informes = () => {
     
     await Promise.allSettled(promesas);
     console.log("Resultados cargados:", resultadosPorEstudiante);
-  };
-
-  // Función para cargar resultados detallados de un estudiante seleccionado
-  const cargarResultadosEstudianteSeleccionado = async (estudiante) => {
-    try {
-      setLoading(true);
-      
-      // Si el estudiante ya tiene datos de GAC, usarlos directamente
-      if (estudiante.gacs) {
-        setEstudianteSeleccionado(estudiante);
-        return;
-      }
-      
-      // Si no, cargar los datos del estudiante
-      const estudianteId = estudiante.estudiante_id;
-      let resultados;
-      
-      // Si el estudiante pertenece a segundo semestre, usar la API por semestre
-      if (esSegundoSemestre(estudiante.estudiante_grupo)) {
-        resultados = await evaluacionApi.obtenerResultadosEstudiantePorSemestre(estudianteId);
-      } else {
-        // Para estudiantes de primer semestre, usar la API normal
-        const resultadosNormales = await evaluacionApi.obtenerResultadosEstudiante(estudianteId);
-        resultados = {
-          estudiante: {
-            id: estudianteId,
-            nombre: estudiante.estudiante_nombre,
-            grupo: estudiante.estudiante_grupo,
-            documento: estudiante.documento || 'N/A',
-            es_segundo_semestre: false
-          },
-          primer_semestre: resultadosNormales,
-          segundo_semestre: {
-            semestre: "Segundo Semestre",
-            resumen_general: {
-              promedio_general: 0,
-              total_evaluaciones: 0,
-              total_gacs_evaluados: 0,
-              total_racs_evaluados: 0,
-            },
-            grafico_profesores: [],
-            grafico_gacs: [],
-            evaluaciones: [],
-          }
-        };
-      }
-      
-      // Crear objeto con datos del estudiante y resultados
-      const estudianteConResultados = {
-        ...estudiante,
-        resultados: resultados
-      };
-      
-      setEstudianteSeleccionado(estudianteConResultados);
-      
-    } catch (error) {
-      console.error(`Error al cargar resultados del estudiante:`, error);
-      toast.error("Error al cargar detalles del estudiante");
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Funciones para descargar PDFs
@@ -1203,12 +1392,17 @@ const Informes = () => {
               <div className="flex justify-center items-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
               </div>
-            ) : profesoresMaterias ? (
+            ) : profesoresAgrupados.length ? (
               <div className="space-y-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-2xl font-semibold text-gray-800">
-                    Promedios por Profesor y Materia
-                  </h2>
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-gray-800">
+                      Informes completos por profesor
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      Explora cada materia y conoce el detalle de todos los estudiantes evaluados
+                    </p>
+                  </div>
                   <button
                     onClick={() => handleDescargarPDF("profesor")}
                     disabled={loading}
@@ -1219,304 +1413,153 @@ const Informes = () => {
                   </button>
                 </div>
 
-                {/* Modal de detalle */}
-                {mostrarDetalle && detalleProfesorMateria && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-semibold">
-                          {detalleProfesorMateria.profesor_nombre} -{" "}
-                          {detalleProfesorMateria.materia_nombre}
-                        </h3>
+                <div className="space-y-4">
+                  {profesoresAgrupados.map((profesor) => {
+                    const isExpanded = profesorExpandido === profesor.profesor_id;
+                    return (
+                      <div
+                        key={profesor.profesor_id}
+                        className="bg-white rounded-lg shadow-md border border-gray-200"
+                      >
                         <button
-                          onClick={() => setMostrarDetalle(false)}
-                          className="text-gray-500 hover:text-gray-700"
+                          type="button"
+                          onClick={() => handleToggleProfesor(profesor.profesor_id)}
+                          className="w-full text-left p-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
                         >
-                          ✕
-                        </button>
-                      </div>
-
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full table-auto">
-                          <thead>
-                            <tr className="bg-gray-50">
-                              <th className="px-4 py-2 text-left">
-                                Estudiante
-                              </th>
-                              <th className="px-4 py-2 text-left">Grupo</th>
-                              <th className="px-4 py-2 text-left">Promedio</th>
-                              <th className="px-4 py-2 text-left">
-                                Evaluaciones
-                              </th>
-                              <th className="px-4 py-2 text-left">
-                                Acciones
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {detalleProfesorMateria.estudiantes.map(
-                              (estudiante, index) => (
-                                <tr key={index} className="border-b">
-                                  <td className="px-4 py-2">
-                                    {estudiante.estudiante_nombre}
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    {estudiante.estudiante_grupo}
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    <div className="text-center">
-                                      <span
-                                        className={`font-semibold block ${getColorByPuntaje(
-                                          estudiante.promedio
-                                        )}`}
-                                      >
-                                        {estudiante.promedio}
-                                      </span>
-                                      <span className="text-xs text-gray-600">
-                                        {convertirCalificacionCualitativa(estudiante.promedio)}
-                                      </span>
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    {estudiante.total_evaluaciones}
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    <button
-                                      onClick={() => cargarResultadosEstudianteSeleccionado(estudiante)}
-                                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                                    >
-                                      Ver Detalles
-                                    </button>
-                                  </td>
-                                </tr>
-                              )
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Modal de detalles del estudiante */}
-                {estudianteSeleccionado && estudianteSeleccionado.estudiante_nombre && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xl font-semibold">
-                          Detalles de {estudianteSeleccionado.estudiante_nombre}
-                        </h3>
-                        <button
-                          onClick={() => setEstudianteSeleccionado(null)}
-                          className="text-gray-500 hover:text-gray-700"
-                        >
-                          ✕
-                        </button>
-                      </div>
-
-                      <div className="space-y-6">
-                        {/* Información general */}
-                        <div className="bg-gray-50 p-4 rounded-lg">
-                          <h4 className="text-lg font-semibold text-gray-800 mb-2">
-                            📊 Información General
-                          </h4>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-sm text-gray-600">Grupo:</p>
-                              <p className="font-medium">{estudianteSeleccionado.estudiante_grupo}</p>
+                          <div>
+                            <p className="text-xl font-semibold text-gray-900">
+                              {profesor.profesor_nombre}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {profesor.total_materias} materia
+                              {profesor.total_materias === 1 ? "" : "s"} evaluada
+                              {profesor.total_materias === 1 ? "" : "s"}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-6">
+                            <div className="text-right">
+                              <p className="text-xs text-gray-500">Promedio general</p>
+                              <p
+                                className={`text-2xl font-bold ${getColorByPuntaje(
+                                  profesor.promedio_general || 0
+                                )}`}
+                              >
+                                {(profesor.promedio_general || 0).toFixed(2)}
+                              </p>
                             </div>
-                            <div>
-                              <p className="text-sm text-gray-600">Promedio General:</p>
-                              <div className="text-center">
-                                <p className={`font-bold text-lg ${getColorByPuntaje(estudianteSeleccionado.promedio)}`}>
-                                  {estudianteSeleccionado.promedio}
-                                </p>
-                                <p className="text-sm text-gray-600">
-                                  {convertirCalificacionCualitativa(estudianteSeleccionado.promedio)}
-                                </p>
-                              </div>
+                            <div className="text-right">
+                              <p className="text-xs text-gray-500">Cobertura</p>
+                              <p className="text-lg font-semibold text-gray-900">
+                                {profesor.estudiantes_evaluados} /{" "}
+                                {profesor.total_estudiantes || 0} estudiantes
+                              </p>
                             </div>
-                            <div>
-                              <p className="text-sm text-gray-600">Total Evaluaciones:</p>
-                              <p className="font-medium">{estudianteSeleccionado.total_evaluaciones}</p>
+                            <div className="flex items-center gap-2 text-blue-600">
+                              {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                              <span className="text-sm font-medium">
+                                {isExpanded ? "Ocultar detalle" : "Ver detalle"}
+                              </span>
                             </div>
                           </div>
-                        </div>
+                        </button>
 
-                        {/* Evaluaciones detalladas */}
-                        <div className="bg-white border rounded-lg p-4">
-                          <h4 className="text-lg font-semibold text-gray-800 mb-3">
-                            📝 Evaluaciones Detalladas
-                          </h4>
-                          <div className="space-y-3">
-                            {estudianteSeleccionado.evaluaciones && estudianteSeleccionado.evaluaciones.map((evaluacion, index) => (
-                              <div key={index} className="bg-gray-50 p-3 rounded-lg">
-                                <div className="flex justify-between items-center">
-                                  <div>
-                                    <p className="font-medium text-gray-800">
-                                      RAC {evaluacion.rac_numero}
-                                    </p>
-                                    <p className="text-sm text-gray-600">
-                                      {evaluacion.rac_descripcion}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      {new Date(evaluacion.fecha).toLocaleDateString()}
-                                    </p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className={`text-lg font-bold ${getColorByPuntaje(evaluacion.puntaje)}`}>
-                                      {evaluacion.puntaje}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                        {isExpanded && (
+                          <div className="border-t border-gray-100 bg-gray-50 p-6 space-y-6">
+                            {profesor.materias.map((materia) => {
+                              const key = getProfesorMateriaKey(
+                                profesor.profesor_id,
+                                materia.materia_id
+                              );
+                              const detalle = detallesProfesorMateria[key];
+                              const estaCargando =
+                                cargandoDetalleProfesor === profesor.profesor_id &&
+                                !detalle;
 
-                        {/* Resultados por GAC */}
-                        {estudianteSeleccionado.gacs && estudianteSeleccionado.gacs.length > 0 && (
-                          <div className="bg-white border rounded-lg p-4">
-                            <h4 className="text-lg font-semibold text-gray-800 mb-3">
-                              🎯 Resultados por GAC
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {estudianteSeleccionado.gacs.map((gac, gacIndex) => (
-                                <div key={gacIndex} className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                                  <div className="flex justify-between items-center">
+                              return (
+                                <div
+                                  key={key}
+                                  className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm"
+                                >
+                                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                     <div>
-                                      <p className="font-medium text-blue-800">
-                                        {gac.gac}
+                                      <p className="text-lg font-semibold text-gray-900">
+                                        {materia.materia_nombre}
                                       </p>
-                                      <p className="text-sm text-blue-600">
-                                        {gac.descripcion}
-                                      </p>
-                                      <p className="text-xs text-blue-500">
-                                        {gac.total_evaluaciones} evaluación(es)
+                                      <p className="text-sm text-gray-500">
+                                        {materia.estudiantes_evaluados} /{" "}
+                                        {materia.total_estudiantes} estudiantes evaluados
                                       </p>
                                     </div>
-                                    <div className="text-right">
-                                      <p className={`text-lg font-bold ${getColorByPuntaje(gac.promedio)}`}>
-                                        {gac.promedio}
-                                      </p>
+                                    <div className="flex flex-wrap gap-6 items-center">
+                                      <div className="text-right">
+                                        <p className="text-xs text-gray-500">Promedio</p>
+                                        <p
+                                          className={`text-2xl font-bold ${getColorByPuntaje(
+                                            materia.promedio || 0
+                                          )}`}
+                                        >
+                                          {(materia.promedio || 0).toFixed(2)}
+                                        </p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-xs text-gray-500">
+                                          % Evaluado
+                                        </p>
+                                        <p className="text-lg font-semibold text-gray-900">
+                                          {materia.porcentaje_evaluacion}%
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          cargarDetalleMateria(
+                                            profesor.profesor_id,
+                                            materia.materia_id,
+                                            { forzar: true }
+                                          );
+                                        }}
+                                        className="inline-flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+                                      >
+                                        <FaSyncAlt
+                                          className={estaCargando ? "animate-spin" : ""}
+                                        />
+                                        Actualizar
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          mostrarInformacionProfesor(
+                                            profesor.profesor_id,
+                                            profesor.profesor_nombre
+                                          );
+                                        }}
+                                        className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+                                      >
+                                        <FaDownload className="text-sm" />
+                                        Descargar PDF
+                                      </button>
                                     </div>
                                   </div>
+                                  <div className="mt-4">
+                                    {estaCargando ? (
+                                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                        <span>Cargando estudiantes...</span>
+                                      </div>
+                                    ) : (
+                                      renderEstudiantesMateria(detalle)
+                                    )}
+                                  </div>
                                 </div>
-                              ))}
-                            </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Lista de profesores y materias */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {profesoresMaterias.profesores_materias.map((item, index) => (
-                    <div
-                      key={index}
-                      className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow"
-                    >
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-gray-800 text-lg">
-                            {item.profesor_nombre}
-                          </h3>
-                          <p className="text-gray-600 text-sm">
-                            {item.materia_nombre}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              mostrarInformacionProfesor(item.profesor_id, item.profesor_nombre);
-                            }}
-                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-full transition-colors"
-                            title="Descargar informe individual del profesor"
-                          >
-                            <FaDownload className="text-sm" />
-                          </button>
-                          <button
-                            onClick={() =>
-                              cargarDetalleProfesorMateria(
-                                item.profesor_id,
-                                item.materia_id
-                              )
-                            }
-                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-full transition-colors"
-                            title="Ver detalles"
-                          >
-                            <FaEye className="text-sm" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        {/* Promedio */}
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-600">
-                            Promedio:
-                          </span>
-                          <span
-                            className={`text-xl font-bold ${getColorByPuntaje(
-                              item.promedio
-                            )}`}
-                          >
-                            {item.promedio}
-                          </span>
-                        </div>
-
-                        {/* Semaforización */}
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-600">
-                            Progreso:
-                          </span>
-                          <div className="flex items-center space-x-2">
-                            <FaCircle
-                              className={`text-sm ${
-                                getSemaforoColor(item.promedio) === "red"
-                                  ? "text-red-500"
-                                  : getSemaforoColor(item.promedio) === "yellow"
-                                  ? "text-yellow-500"
-                                  : "text-green-500"
-                              }`}
-                            />
-                            <span className="text-sm font-medium">
-                              {item.porcentaje_evaluacion}%
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Estadísticas */}
-                        <div className="text-xs text-gray-500 space-y-1">
-                          <div className="flex justify-between">
-                            <span>Evaluados:</span>
-                            <span>{item.estudiantes_evaluados}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Total:</span>
-                            <span>{item.total_estudiantes}</span>
-                          </div>
-                        </div>
-
-                        {/* Barra de progreso */}
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${
-                              item.color_semaforo === "rojo"
-                                ? "bg-red-500"
-                                : item.color_semaforo === "amarillo"
-                                ? "bg-yellow-500"
-                                : "bg-green-500"
-                            }`}
-                            style={{ width: `${item.porcentaje_evaluacion}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ) : (
