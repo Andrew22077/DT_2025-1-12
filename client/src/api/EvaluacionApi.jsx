@@ -1,6 +1,6 @@
 import { useAuth } from "./Auth";
 
-const API_BASE_URL = "http://3.17.149.166/competencias";
+const API_BASE_URL = "http://localhost:8000/competencias";
 
 export const useEvaluacionApi = () => {
   const { getAuthHeaders } = useAuth();
@@ -551,6 +551,37 @@ export const useEvaluacionApi = () => {
     }
   };
 
+  const descargarPDFProfesorIndividual = async (profesorId, profesorNombre) => {
+    const response = await fetch(
+      `${API_BASE_URL}/api/pdf/profesor-individual/${profesorId}/`,
+      {
+        method: "GET",
+        headers: getAuthHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Error al generar el informe del profesor");
+    }
+
+    const contentType = response.headers.get("Content-Type") || "";
+    if (!contentType.includes("application/pdf")) {
+      const text = await response.text();
+      throw new Error(text || "El servidor no devolvió un PDF válido");
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `informe_profesor_${(profesorNombre || "").replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  };
+
   return {
     obtenerEstudiantes,
     obtenerRACs,
@@ -575,5 +606,6 @@ export const useEvaluacionApi = () => {
     descargarPDFPorEstudiante,
     descargarPDFEstudiantesPorSemestre,
     descargarPDFEstudianteIndividual,
+    descargarPDFProfesorIndividual,
   };
 };

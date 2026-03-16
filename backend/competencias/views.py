@@ -691,44 +691,6 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
         evaluaciones_segundo_semestre = list(evaluaciones_periodo_actual)
         print(f"Usando períodos académicos - Evaluaciones segundo semestre ({periodo_actual.codigo}): {len(evaluaciones_segundo_semestre)}")
         
-    # Si no hay suficientes evaluaciones con períodos, complementar con lógica de fechas
-    if not evaluaciones_primer_semestre and not evaluaciones_segundo_semestre:
-        print("No se encontraron evaluaciones con períodos asignados, usando lógica de fechas")
-        
-        # Separar por fechas utilizando todas las evaluaciones ya cargadas
-        for evaluacion in todas_evaluaciones:
-            semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
-            if semestre == 'primer_semestre':
-                evaluaciones_primer_semestre.append(evaluacion)
-            else:  # segundo_semestre
-                evaluaciones_segundo_semestre.append(evaluacion)
-        
-        print(f"Fallback - Evaluaciones primer semestre (por fecha): {len(evaluaciones_primer_semestre)}")
-        print(f"Fallback - Evaluaciones segundo semestre (por fecha): {len(evaluaciones_segundo_semestre)}")
-    
-    # Si hay evaluaciones con períodos pero faltan algunas, complementar con fechas
-    elif len(evaluaciones_primer_semestre) + len(evaluaciones_segundo_semestre) < len(todas_evaluaciones):
-        print("Complementando con lógica de fechas para evaluaciones sin período asignado")
-        
-        # Obtener IDs de evaluaciones ya procesadas
-        ids_procesadas = set()
-        for eval in evaluaciones_primer_semestre:
-            ids_procesadas.add(eval.id)
-        for eval in evaluaciones_segundo_semestre:
-            ids_procesadas.add(eval.id)
-        
-        # Procesar evaluaciones restantes por fechas
-        for evaluacion in todas_evaluaciones:
-            if evaluacion.id not in ids_procesadas:
-                semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
-                if semestre == 'primer_semestre':
-                    evaluaciones_primer_semestre.append(evaluacion)
-                else:  # segundo_semestre
-                    evaluaciones_segundo_semestre.append(evaluacion)
-            
-            print(f"Complementado - Evaluaciones primer semestre: {len(evaluaciones_primer_semestre)}")
-            print(f"Complementado - Evaluaciones segundo semestre: {len(evaluaciones_segundo_semestre)}")
-        
         def procesar_evaluaciones(evaluaciones_list, semestre_nombre):
             if not evaluaciones_list:
                 return {
@@ -810,9 +772,90 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
                 "evaluaciones": evaluaciones_detalle,
             }
         
+        # Si no hay suficientes evaluaciones con períodos, complementar con lógica de fechas
+        if not evaluaciones_primer_semestre and not evaluaciones_segundo_semestre:
+            print("No se encontraron evaluaciones con períodos asignados, usando lógica de fechas")
+            
+            # Separar por fechas utilizando todas las evaluaciones ya cargadas
+            for evaluacion in todas_evaluaciones:
+                semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
+                if semestre == 'primer_semestre':
+                    evaluaciones_primer_semestre.append(evaluacion)
+                else:  # segundo_semestre
+                    evaluaciones_segundo_semestre.append(evaluacion)
+            
+            print(f"Fallback - Evaluaciones primer semestre (por fecha): {len(evaluaciones_primer_semestre)}")
+            print(f"Fallback - Evaluaciones segundo semestre (por fecha): {len(evaluaciones_segundo_semestre)}")
+        
+        # Si hay evaluaciones con períodos pero faltan algunas, complementar con fechas
+        elif len(evaluaciones_primer_semestre) + len(evaluaciones_segundo_semestre) < len(todas_evaluaciones):
+            print("Complementando con lógica de fechas para evaluaciones sin período asignado")
+            
+            # Obtener IDs de evaluaciones ya procesadas
+            ids_procesadas = set()
+            for eval in evaluaciones_primer_semestre:
+                ids_procesadas.add(eval.id)
+            for eval in evaluaciones_segundo_semestre:
+                ids_procesadas.add(eval.id)
+            
+            # Procesar evaluaciones restantes por fechas
+            for evaluacion in todas_evaluaciones:
+                if evaluacion.id not in ids_procesadas:
+                    semestre = determinar_semestre_por_fecha(evaluacion.fecha, grupo_actual)
+                    if semestre == 'primer_semestre':
+                        evaluaciones_primer_semestre.append(evaluacion)
+                    else:  # segundo_semestre
+                        evaluaciones_segundo_semestre.append(evaluacion)
+            
+            print(f"Complementado - Evaluaciones primer semestre: {len(evaluaciones_primer_semestre)}")
+            print(f"Complementado - Evaluaciones segundo semestre: {len(evaluaciones_segundo_semestre)}")
+        
         # Procesar datos para cada semestre usando nombres de periodos
         nombre_primer_semestre = periodo_anterior.nombre if periodo_anterior else "Primer Semestre"
         nombre_segundo_semestre = periodo_actual.nombre if periodo_actual else "Segundo Semestre"
+        
+        def calcular_evolucion_top_gacs(periodos_evaluaciones):
+            gac_registros = {}
+            for periodo_nombre, evaluaciones_list in periodos_evaluaciones:
+                if not periodo_nombre or not evaluaciones_list:
+                    continue
+                for evaluacion in evaluaciones_list:
+                    for gac in evaluacion.rac.gacs.all():
+                        key = f"gac_{gac.id}"
+                        if key not in gac_registros:
+                            gac_registros[key] = {
+                                "key": key,
+                                "label": f"GAC {gac.numero}",
+                                "descripcion": gac.descripcion,
+                                "total_evaluaciones": 0,
+                                "periodos": {}
+                            }
+                        gac_registros[key]["total_evaluaciones"] += 1
+                        gac_registros[key]["periodos"].setdefault(periodo_nombre, []).append(evaluacion.puntaje)
+            
+            if not gac_registros:
+                return [], {}
+            
+            top_items = sorted(
+                gac_registros.values(),
+                key=lambda item: (-item["total_evaluaciones"], item["label"])
+            )[:3]
+            
+            metadata = []
+            promedios_por_gac = {}
+            for item in top_items:
+                metadata.append({
+                    "key": item["key"],
+                    "label": item["label"],
+                    "descripcion": item["descripcion"]
+                })
+                promedios_por_gac[item["key"]] = {
+                    periodo: round(sum(puntajes) / len(puntajes), 2)
+                    for periodo, puntajes in item["periodos"].items()
+                    if puntajes
+                }
+            
+            return metadata, promedios_por_gac
         
         datos_primer_semestre = procesar_evaluaciones(evaluaciones_primer_semestre, nombre_primer_semestre)
         datos_segundo_semestre = procesar_evaluaciones(evaluaciones_segundo_semestre, nombre_segundo_semestre)
@@ -876,49 +919,6 @@ def resultados_estudiante_por_semestre(request, estudiante_id):
                 "criterio_clasificacion": "Por períodos académicos (basado en periodos académicos reales)"
             }
         }
-
-    def calcular_evolucion_top_gacs(periodos_evaluaciones):
-        gac_registros = {}
-        for periodo_nombre, evaluaciones_list in periodos_evaluaciones:
-            if not periodo_nombre or not evaluaciones_list:
-                continue
-            for evaluacion in evaluaciones_list:
-                for gac in evaluacion.rac.gacs.all():
-                    key = f"gac_{gac.id}"
-                    if key not in gac_registros:
-                        gac_registros[key] = {
-                            "key": key,
-                            "label": f"GAC {gac.numero}",
-                            "descripcion": gac.descripcion,
-                            "total_evaluaciones": 0,
-                            "periodos": {}
-                        }
-                    gac_registros[key]["total_evaluaciones"] += 1
-                    gac_registros[key]["periodos"].setdefault(periodo_nombre, []).append(evaluacion.puntaje)
-        
-        if not gac_registros:
-            return [], {}
-        
-        top_items = sorted(
-            gac_registros.values(),
-            key=lambda item: (-item["total_evaluaciones"], item["label"])
-        )[:3]
-        
-        metadata = []
-        promedios_por_gac = {}
-        for item in top_items:
-            metadata.append({
-                "key": item["key"],
-                "label": item["label"],
-                "descripcion": item["descripcion"]
-            })
-            promedios_por_gac[item["key"]] = {
-                periodo: round(sum(puntajes) / len(puntajes), 2)
-                for periodo, puntajes in item["periodos"].items()
-                if puntajes
-            }
-        
-        return metadata, promedios_por_gac
         
         return JsonResponse(data, safe=False)
         

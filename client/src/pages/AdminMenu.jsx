@@ -38,18 +38,24 @@ const menuItems = [
 export default function MenuAdmin() {
   return (
     <div
-      className="min-h-screen bg-cover bg-center flex items-start justify-center p-8"
+      className="min-h-screen bg-cover bg-center flex items-center justify-center p-8"
       style={{ backgroundImage: `url(${backgroundImage})` }}
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 bg-white/90 p-16 rounded-[40px] border-4 border-[#3399FF] shadow-2xl max-w-[1200px] w-full aspect-square max-h-[80vh]">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 bg-white/90 p-8 sm:p-12 rounded-[40px] border-4 border-[#3399FF] shadow-2xl max-w-[1100px] w-full">
         {menuItems.map((item, index) => (
           <Link
             key={index}
             to={item.link}
-            className="flex flex-col items-center justify-center border-2 border-[#99CCFF] rounded-[30px] p-6 bg-[#E6F2FF] hover:bg-[#3399FF] transition-all cursor-pointer transform hover:scale-105 active:scale-95"
+            className="flex flex-col items-center justify-center min-h-[200px] border-2 border-[#99CCFF] rounded-[24px] p-6 bg-[#E6F2FF] hover:bg-[#3399FF] transition-all cursor-pointer transform hover:scale-105 active:scale-95"
           >
-            <img src={item.image} alt={item.label} className="" />
-            <p className="font-bold text-xl text-[#003366]">{item.label}</p>
+            <div className="w-full h-28 flex items-center justify-center mb-3 shrink-0">
+              <img
+                src={item.image}
+                alt={item.label}
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
+            <p className="font-bold text-lg sm:text-xl text-[#003366] text-center">{item.label}</p>
           </Link>
         ))}
       </div>

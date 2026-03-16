@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "../api/Auth";
 import { Link } from "react-router-dom";
 import {
@@ -13,12 +13,24 @@ import {
 
 const UserMenu = () => {
   const [open, setOpen] = useState(false);
+  const menuRef = useRef(null);
   const { user, logout } = useAuth();
 
   const toggleMenu = () => setOpen(!open);
 
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open]);
+
   return (
-    <div className="relative inline-block text-left">
+    <div ref={menuRef} className="relative inline-block text-left">
       <div className="flex items-center gap-2">
         <button
           onClick={toggleMenu}

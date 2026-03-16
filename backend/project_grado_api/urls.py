@@ -22,9 +22,9 @@ from usuarios import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),  # Ruta para el admin
-    re_path('login', views.login_view),  # Ruta para el login
-    re_path(r'^register/?$', views.register),  # Ruta para el registro
-    re_path('logout', views.logout),  # Ruta para logout
+    re_path('api/login', views.login_view),  # Ruta para el login
+    re_path(r'^api/register/?$', views.register),  # Ruta para el registro
+    re_path('api/logout', views.logout),  # Ruta para logout
     re_path('listar-profesores', views.listar_profesores),  # Ruta para listar los profesores
     re_path('profesor/(?P<id>[0-9]+)', views.profesor_detail),  # Ruta para editar un profesor por ID
     re_path(r'^api/profesores/(?P<id>[0-9]+)/update/$', views.update_profesor_status, name='update_profesor_status'),
@@ -32,7 +32,7 @@ urlpatterns = [
     re_path('import-excel-profesores', views.import_excel_profesores, name='import_excel_profesores'),
     re_path(r'^api/perfil/actualizar/$', views.actualizar_perfil_usuario),
     re_path(r'api/export-excel-profesores', views.export_excel_profesores, name='export_excel_profesores'),
-    re_path('listar-estudiantes', views.listar_estudiantes),
+    re_path('api/listar-estudiantes', views.listar_estudiantes),
     re_path(r'api/estudiante/(?P<id>[0-9]+)', views.estudiante_detail, name='estudiante_detail'),
     re_path(r'api/register-estudiante/?$', views.register_estudiante, name='register_estudiante'),
     re_path(r'api/estudiantes-por-grupo/(?P<grupo>[\w-]+)', views.estudiantes_por_grupo, name='estudiantes_por_grupo'),

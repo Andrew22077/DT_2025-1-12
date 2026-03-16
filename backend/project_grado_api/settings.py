@@ -9,7 +9,7 @@ SECRET_KEY = 'django-insecure-_k0!#z7w=9cct0*9m(i9vi*!)gws==$$%-9!37ypjfpi&$q77p
 # ✅ True en desarrollo, False en producción
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '3.17.149.166']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # ======================
 #  APPS
@@ -77,9 +77,9 @@ WSGI_APPLICATION = 'project_grado_api.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'midb',
-        'USER': 'competenciasGAC',
-        'PASSWORD': 'Unbosqu32025',
+        'NAME': 'project_database',  # Cambia esto al nombre de tu base de datos
+        'USER': 'root',  # Cambia esto a tu usuario de MySQL
+        'PASSWORD': '0000',  # Cambia esto a tu contraseña de MySQL (deja '' si no tiene)
         'HOST': '127.0.0.1',  # ⚠️ usa 127.0.0.1, no "localhost"
         'PORT': '3306',
         'OPTIONS': {
@@ -124,7 +124,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # ======================
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # desarrollo
-    "http://3.17.149.166",    # producción
 ]
 
 # Para desarrollo puedes habilitar todo (⚠️ no en producción)

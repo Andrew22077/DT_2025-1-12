@@ -422,45 +422,12 @@ const Informes = () => {
     }
   };
 
-  // Función para descargar informe individual de profesor
+  // Función para descargar informe individual de profesor (usa API con URL del backend para recibir PDF válido)
   const descargarInformeProfesor = async (profesorId, profesorNombre) => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error('No se encontró token de autenticación');
-        return;
-      }
-
-      // Mostrar mensaje de carga
       toast.loading('Generando informe del profesor...', { id: 'descargando-informe' });
-
-      // Usar la URL correcta del endpoint
-      const response = await fetch(`/competencias/api/pdf/profesor-individual/${profesorId}/`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Error al generar el informe');
-      }
-
-      // Obtener el archivo PDF
-      const blob = await response.blob();
-      
-      // Crear URL temporal para descarga
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `informe_profesor_${profesorNombre.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
+      await evaluacionApi.descargarPDFProfesorIndividual(profesorId, profesorNombre);
       toast.success(`Informe de ${profesorNombre} descargado exitosamente`, { id: 'descargando-informe' });
-      
     } catch (error) {
       console.error('Error descargando informe de profesor:', error);
       toast.error(`Error al descargar informe: ${error.message}`, { id: 'descargando-informe' });
