@@ -6,7 +6,7 @@ nixPkgs = ["python312", "mysql"]
 cmds = ["pip install -r requirements.txt"]
 
 [phases.build]
-cmds = ["python manage.py collectstatic --noinput --clear"]
+cmds = ["python manage.py collectstatic --noinput --clear || true"]
 
 [start]
-cmd = "gunicorn project_grado_api.wsgi:application --bind 0.0.0.0:$PORT"
+cmd = "bash start.sh"

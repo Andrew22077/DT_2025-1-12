@@ -13,7 +13,10 @@ def _env(key, default=None):
 # Producción: usa variables de entorno. Desarrollo: valores por defecto.
 SECRET_KEY = _env('SECRET_KEY', 'django-insecure-_k0!#z7w=9cct0*9m(i9vi*!)gws==$$%-9!37ypjfpi&$q77p')
 DEBUG = _env('DEBUG', 'True').lower() in ('1', 'true', 'yes')
-ALLOWED_HOSTS = _env('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+_allowed = _env('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+if os.environ.get('RAILWAY_ENVIRONMENT'):  # Railway pone esto cuando está desplegado
+    _allowed.extend(['.railway.app', '.up.railway.app'])
+ALLOWED_HOSTS = [h.strip() for h in _allowed if h.strip()]
 
 # ======================
 #  APPS

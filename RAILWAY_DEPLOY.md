@@ -179,10 +179,28 @@ Si no creaste un superusuario antes:
 
 ## Solución de problemas
 
-### Error 502 / No responde
-- Revisa los logs del backend en Railway.
-- Verifica que `PORT` esté disponible (Railway lo inyecta; el Procfile usa `$PORT`).
-- Comprueba que las variables de MySQL estén bien referenciadas.
+### Error 502 Bad Gateway (paso 2.6)
+
+1. **Revisar logs**: En Railway → servicio backend → pestaña **Deployments** → clic en el último deploy → **View Logs**. Busca errores al iniciar (imports, base de datos, etc.).
+
+2. **Verificar variables de entorno**:
+   - Las variables `MYSQLHOST`, `MYSQLPORT`, etc. deben estar **referenciadas** al servicio MySQL (no copiadas a mano).
+   - `DEBUG` debe ser `False`.
+   - `ALLOWED_HOSTS`: usa `*` temporalmente o añade tu dominio `tu-backend.up.railway.app`.
+
+3. **Base de datos**: Si el log muestra errores de conexión a MySQL, comprueba que el servicio MySQL esté en el mismo proyecto y que las referencias de variables sean correctas.
+
+4. **Root Directory**: En Settings del backend debe estar `backend` (sin barra).
+
+5. **Redeploy**: Después de cambios, haz **Redeploy** desde el menú del servicio.
+
+6. **Migraciones**: Asegúrate de que el Release Command `python manage.py migrate --noinput` se ejecute y no falle. Revisa los logs del deploy.
+
+7. **Logs del arranque**: Con el script `start.sh`, al iniciar deberías ver:
+   - `=== Iniciando backend (PORT=xxxx) ===`
+   - `Django y BD OK`
+   - `Iniciando Gunicorn...`
+   Si ves `Error: Django o conexion a BD fallo`, el problema está en Django o en la conexión a MySQL. Copia el traceback completo de los logs.
 
 ### Error de CORS
 - Asegúrate de que `CORS_ALLOWED_ORIGINS` incluya exactamente la URL del frontend (con `https://`, sin barra final).
