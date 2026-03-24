@@ -8,11 +8,10 @@ function LoginPage() {
   const [contrasenia, setContrasenia] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
-  const { login, user } = useAuth();
+  const { login, user, isAuthReady } = useAuth();
 
-  if (user) {
-    const isStaff = localStorage.getItem("isStaff") === "true";
-    return <Navigate to={isStaff ? "/admin-menu" : "/teacher-menu"} />;
+  if (isAuthReady && user) {
+    return <Navigate to={user.is_staff ? "/admin-menu" : "/teacher-menu"} />;
   }
 
   const handleSubmit = async (e) => {

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../config";
 
@@ -6,10 +6,49 @@ const AuthContext = createContext();
 const API_URL = `${API_BASE_URL}/api`;
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    const storedUser = localStorage.getItem("user");
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+  const [user, setUser] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  const clearSession = () => {
+    setUser(null);
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    localStorage.removeItem("isStaff");
+  };
+
+  useEffect(() => {
+    const bootstrapSession = async () => {
+      const token = localStorage.getItem("token");
+      if (!token || token === "undefined" || token === "null") {
+        clearSession();
+        setIsAuthReady(true);
+        return;
+      }
+
+      try {
+        const response = await axios.get(`${API_URL}/perfil`, {
+          headers: {
+            Authorization: `Token ${token}`,
+          },
+        });
+        const perfil = response.data || {};
+        const userData = {
+          correo: perfil.correo || "",
+          is_staff: Boolean(perfil.is_staff),
+          token,
+        };
+        setUser(userData);
+        localStorage.setItem("user", JSON.stringify(userData));
+        localStorage.setItem("isStaff", String(userData.is_staff));
+      } catch (error) {
+        clearSession();
+      } finally {
+        setIsAuthReady(true);
+      }
+    };
+
+    bootstrapSession();
+  }, []);
 
   const login = async (correo, contrasenia) => {
     try {
@@ -23,10 +62,15 @@ export const AuthProvider = ({ children }) => {
         if (!token || typeof token !== "string") {
           throw new Error("Respuesta de login inválida (sin token)");
         }
-        const acceso = Boolean(response.data?.acceso);
+        const perfil = response.data?.user || {};
+        const acceso = Boolean(
+          typeof response.data?.acceso !== "undefined"
+            ? response.data.acceso
+            : perfil.is_staff
+        );
 
         const userData = {
-          correo,
+          correo: perfil.correo || correo,
           is_staff: acceso,
           token,
         };
@@ -50,22 +94,21 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem("token");
 
     try {
-      await axios.post(
-        `${API_URL}/logout/`,
-        {},
-        {
-          headers: {
-            Authorization: `Token ${token}`,
-          },
-        }
-      );
-
-      setUser(null);
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-      localStorage.removeItem("isStaff");
+      if (token) {
+        await axios.post(
+          `${API_URL}/logout/`,
+          {},
+          {
+            headers: {
+              Authorization: `Token ${token}`,
+            },
+          }
+        );
+      }
     } catch (error) {
       console.error("Error al cerrar sesión:", error);
+    } finally {
+      clearSession();
     }
   };
 
@@ -83,7 +126,9 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, getAuthHeaders }}>
+    <AuthContext.Provider
+      value={{ user, isAuthReady, login, logout, getAuthHeaders }}
+    >
       {children}
     </AuthContext.Provider>
   );
