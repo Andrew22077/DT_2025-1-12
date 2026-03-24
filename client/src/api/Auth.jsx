@@ -86,7 +86,11 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error("Error al iniciar sesión", error);
-      throw new Error("Correo o contraseña incorrectos");
+      const msg =
+        error?.response?.data?.error ||
+        error?.response?.data?.detail ||
+        "Correo o contraseña incorrectos";
+      throw new Error(msg);
     }
   };
 

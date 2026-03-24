@@ -27,7 +27,7 @@ def login_view(request):
     
 
     print("========================")
-    correo = request.data.get('correo')
+    correo = (request.data.get('correo') or '').strip()
     contrasenia = request.data.get('contrasenia')
     print("correo:", correo)
     print("password:", contrasenia)
@@ -35,12 +35,29 @@ def login_view(request):
     if not correo or not contrasenia:
         return Response({'error': 'Correo y contraseña son requeridos'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # USERNAME_FIELD del modelo Profesor es 'correo' → username=correo
+    # authenticate() usa coincidencia exacta de USERNAME_FIELD; el correo en BD puede
+    # diferir en mayúsculas (normalize_email solo afecta el dominio).
     user = authenticate(request, username=correo, password=contrasenia)
+    if user is None:
+        candidato = Profesor.objects.filter(correo__iexact=correo).first()
+        if (
+            candidato
+            and candidato.check_password(contrasenia)
+            and candidato.is_active
+        ):
+            user = candidato
+
     print(">>> Usuario autenticado:", user)
 
-
     if user is None:
+        inactivo = Profesor.objects.filter(correo__iexact=correo).exclude(
+            is_active=True
+        ).first()
+        if inactivo:
+            return Response(
+                {'error': 'Usuario inactivo. Contacte al administrador.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return Response({'error': 'Correo o contraseña incorrectos'}, status=status.HTTP_401_UNAUTHORIZED)
 
     # Iniciar sesión en Django
