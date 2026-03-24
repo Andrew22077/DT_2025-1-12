@@ -29,7 +29,7 @@ function LoginPage() {
       }
     } catch (err) {
       console.error(err);
-      setError("Correo o contraseña incorrectos");
+      setError(err.message);
     }
   };
 
