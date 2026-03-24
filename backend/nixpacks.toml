@@ -1,6 +1,6 @@
 # Configuración para Railway (detecta Python y usa este build)
 [phases.setup]
-nixPkgs = ["python312", "mysql"]
+nixPkgs = ["python312", "mariadb"]
 
 [phases.install]
 cmds = ["pip install -r requirements.txt"]
