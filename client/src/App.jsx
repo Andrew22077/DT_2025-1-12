@@ -113,6 +113,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="/menu" element={<Navigate to="/teacher-menu" replace />} />
+        <Route path="*" element={<Navigate to="/information" replace />} />
       </Routes>
 
       <Toaster />

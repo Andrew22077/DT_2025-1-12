@@ -22,11 +22,11 @@ function LoginPage() {
     try {
       const data = await login(correo, contrasenia);
 
-      // Redirige según el rol
+      // Redirige según el rol (la ruta del menú docente es /teacher-menu)
       if (data.acceso) {
         navigate("/admin-menu");
       } else {
-        navigate("/menu");
+        navigate("/teacher-menu");
       }
     } catch (err) {
       console.error(err);

@@ -2,7 +2,11 @@ import React from "react";
 import { Navigate } from "react-router-dom";
 
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
-  const token = localStorage.getItem("token");
+  const raw = localStorage.getItem("token");
+  const token =
+    raw && raw !== "undefined" && raw !== "null" && raw.trim() !== ""
+      ? raw
+      : null;
   const isStaff = localStorage.getItem("isStaff") === "true";
 
   if (!token) {

@@ -19,18 +19,22 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.status === 200) {
-        // Guardar toda la información relevante del usuario
+        const token = response.data?.token;
+        if (!token || typeof token !== "string") {
+          throw new Error("Respuesta de login inválida (sin token)");
+        }
+        const acceso = Boolean(response.data?.acceso);
+
         const userData = {
           correo,
-          is_staff: response.data.acceso, // Asegúrate de que `acceso` se corresponda con `is_staff`
-          token: response.data.token,
+          is_staff: acceso,
+          token,
         };
 
-        // Guardar en el estado y localStorage
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem("isStaff", response.data.acceso);
+        localStorage.setItem("token", token);
+        localStorage.setItem("isStaff", String(acceso));
 
         return response.data;
       } else {

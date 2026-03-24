@@ -35,8 +35,7 @@ def login_view(request):
     if not correo or not contrasenia:
         return Response({'error': 'Correo y contraseña son requeridos'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Autenticación: Usamos el correo en lugar de username, y la contraseña
-    user = authenticate(request, correo=correo, password=contrasenia)
+    # USERNAME_FIELD del modelo Profesor es 'correo' → username=correo
     user = authenticate(request, username=correo, password=contrasenia)
     print(">>> Usuario autenticado:", user)
 

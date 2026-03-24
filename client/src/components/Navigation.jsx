@@ -50,7 +50,7 @@ export function Navigation() {
       {isOpen && (
         <div className="md:hidden flex flex-col px-4 pt-2 pb-4 space-y-2 bg-green-700">
           <Link
-            to="/menu"
+            to="/teacher-menu"
             className="flex items-center gap-2 hover:text-yellow-300 transition"
             onClick={() => setIsOpen(false)}
           >
