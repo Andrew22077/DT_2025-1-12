@@ -56,41 +56,46 @@ export const AuthProvider = ({ children }) => {
         correo,
         contrasenia,
       });
-
+  
+      console.log("RESPONSE:", response.data); // 👈 AQUÍ sí existe
+  
       if (response.status === 200) {
         const token = response.data?.token;
-        if (!token || typeof token !== "string") {
+  
+        if (!token) {
+          console.log("RESPUESTA COMPLETA:", response.data); // 👈 DEBUG
           throw new Error("Respuesta de login inválida (sin token)");
         }
+  
         const perfil = response.data?.user || {};
         const acceso = Boolean(
           typeof response.data?.acceso !== "undefined"
             ? response.data.acceso
             : perfil.is_staff
         );
-
+  
         const userData = {
           correo: perfil.correo || correo,
           is_staff: acceso,
           token,
         };
-
+  
         setUser(userData);
         localStorage.setItem("user", JSON.stringify(userData));
         localStorage.setItem("token", token);
         localStorage.setItem("isStaff", String(acceso));
-
+  
         return response.data;
       } else {
         throw new Error("Error de autenticación");
       }
     } catch (error) {
-      console.error("Error al iniciar sesión", error);
-      const msg =
+      console.error("ERROR COMPLETO:", error.response?.data || error);
+      throw new Error(
         error?.response?.data?.error ||
-        error?.response?.data?.detail ||
-        "Correo o contraseña incorrectos";
-      throw new Error(msg);
+        error?.message ||
+        "Error desconocido"
+      );
     }
   };
 
