@@ -1,12 +1,12 @@
 # Configuración para Railway (detecta Python y usa este build)
 [phases.setup]
-nixPkgs = ["python312", "mariadb"]
+nixPkgs = ["python3", "mariadb"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = ["python -m pip install -r requirements.txt"]
 
 [phases.build]
 cmds = ["python manage.py collectstatic --noinput --clear || true"]
 
 [start]
-cmd = "bash start.sh"
+cmd = "gunicorn project_grado_api.wsgi:application --bind 0.0.0.0:$PORT --timeout 120 --workers 1"
