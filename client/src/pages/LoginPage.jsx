@@ -30,6 +30,7 @@ function LoginPage() {
     } catch (err) {
       console.error(err);
       setError(err.message);
+      console.log("RESPONSE COMPLETO:", response.data);
     }
   };
 
