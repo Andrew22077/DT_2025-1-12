@@ -1,8 +1,10 @@
 // src/api/UserApi.js
 import axios from "axios";
 import { useState, useCallback } from "react";
+import { API_BASE_URL } from "../config";
 
-const API_URL = "http://localhost:8000/api";
+const API_URL = `${API_BASE_URL}/api`;
+const COMPETENCIAS_URL = `${API_BASE_URL}/competencias`;
 
 // Hook personalizado para la API de usuarios
 export const useUserApi = () => {
@@ -117,10 +119,8 @@ export const useUserApi = () => {
       console.log("=== DEBUG ACTUALIZAR FOTO API ===");
       console.log("ID recibido:", id, "(tipo:", typeof id, ")");
       console.log("Token:", token);
-      console.log("URL:", `http://localhost:8000/api/profesores/${id}/foto/`);
-      
       const response = await axios.put(
-        `http://localhost:8000/api/profesores/${id}/foto/`,
+        `${API_URL}/profesores/${id}/foto/`,
         formData,
         {
           headers: {
@@ -265,7 +265,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.put(
-        `http://localhost:8000/api/perfil/actualizar/`,
+        `${API_URL}/perfil/actualizar/`,
         datos,
         {
           headers: {
@@ -568,7 +568,7 @@ export const useUserApi = () => {
       setError(null);
         // Usar el endpoint específico para todas las materias
         const response = await axios.get(
-          `http://localhost:8000/competencias/api/materias/`,
+          `${COMPETENCIAS_URL}/api/materias/`,
         {
           headers: {
             Authorization: `Token ${token}`,
@@ -594,7 +594,7 @@ export const useUserApi = () => {
       setLoading(true);
       setError(null);
       const response = await axios.get(
-        `http://localhost:8000/competencias/api/materias-profesor/`,
+        `${COMPETENCIAS_URL}/api/materias-profesor/`,
         {
           headers: {
             Authorization: `Token ${token}`,
@@ -825,7 +825,7 @@ export const actualizarPerfilUsuario = async (datos) => {
 
   try {
     const response = await axios.put(
-      `http://localhost:8000/api/perfil/actualizar/`, // sin /api/
+      `${API_URL}/perfil/actualizar/`, // sin /api/
       datos,
       {
         headers: {

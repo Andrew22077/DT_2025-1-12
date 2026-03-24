@@ -1,6 +1,7 @@
 import { useAuth } from "./Auth";
+import { API_BASE_URL as API_ROOT } from "../config";
 
-const API_BASE_URL = "http://localhost:8000/competencias";
+const API_BASE_URL = `${API_ROOT}/competencias`;
 
 export const useEvaluacionApi = () => {
   const { getAuthHeaders } = useAuth();

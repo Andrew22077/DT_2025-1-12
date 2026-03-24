@@ -1,0 +1,6 @@
+# Frontend React - Railway detecta Node y construye la app estática
+[phases.build]
+cmds = ["npm install", "npm run build"]
+
+[start]
+cmd = "npx serve -s dist -l $PORT"

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FaCalendarAlt, FaChevronDown } from 'react-icons/fa';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 /**
  * Componente para seleccionar períodos académicos
  */
@@ -27,7 +29,7 @@ const PeriodoSelector = ({
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Token no encontrado');
       
-      const response = await fetch('/competencias/api/periodos/actual/', {
+      const response = await fetch(`${API_BASE}/competencias/api/periodos/actual/`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json'

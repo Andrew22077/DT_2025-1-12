@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 /**
  * Hook personalizado para manejar períodos académicos
  */
@@ -18,7 +20,7 @@ export const usePeriodosAcademicos = () => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Token no encontrado');
       
-      const response = await fetch('/competencias/api/periodos/', {
+      const response = await fetch(`${API_BASE}/competencias/api/periodos/`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json'
@@ -53,7 +55,7 @@ export const usePeriodosAcademicos = () => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Token no encontrado');
       
-      const response = await fetch('/competencias/api/periodos/actual/', {
+      const response = await fetch(`${API_BASE}/competencias/api/periodos/actual/`, {
         headers: {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json'
@@ -84,7 +86,7 @@ export const usePeriodosAcademicos = () => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Token no encontrado');
       
-      const response = await fetch('/competencias/api/periodos/crear/', {
+      const response = await fetch(`${API_BASE}/competencias/api/periodos/crear/`, {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,

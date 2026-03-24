@@ -1,15 +1,19 @@
 import os
 from pathlib import Path
 
+from decouple import config
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# ⚠️ Cambia esto en producción
-SECRET_KEY = 'django-insecure-_k0!#z7w=9cct0*9m(i9vi*!)gws==$$%-9!37ypjfpi&$q77p'
 
-# ✅ True en desarrollo, False en producción
-DEBUG = True
+def _env(key, default=None):
+    """Lee variable de entorno o .env (para pruebas locales con Railway DB)"""
+    return config(key, default=default)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+# Producción: usa variables de entorno. Desarrollo: valores por defecto.
+SECRET_KEY = _env('SECRET_KEY', 'django-insecure-_k0!#z7w=9cct0*9m(i9vi*!)gws==$$%-9!37ypjfpi&$q77p')
+DEBUG = _env('DEBUG', 'True').lower() in ('1', 'true', 'yes')
+ALLOWED_HOSTS = _env('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 # ======================
 #  APPS
@@ -38,7 +42,8 @@ INSTALLED_APPS = [
 # ======================
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # 👈 debe ir arriba
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -74,19 +79,40 @@ WSGI_APPLICATION = 'project_grado_api.wsgi.application'
 # ======================
 #  BASE DE DATOS
 # ======================
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'project_database',  # Cambia esto al nombre de tu base de datos
-        'USER': 'root',  # Cambia esto a tu usuario de MySQL
-        'PASSWORD': '0000',  # Cambia esto a tu contraseña de MySQL (deja '' si no tiene)
-        'HOST': '127.0.0.1',  # ⚠️ usa 127.0.0.1, no "localhost"
-        'PORT': '3306',
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
+# Railway: usa MYSQLHOST, MYSQLPORT, MYSQLUSER, MYSQLPASSWORD, MYSQLDATABASE
+# Local: usa la configuración por defecto o .env para conectar a Railway
+if _env('MYSQLHOST'):
+    _db_options = {
+        'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        'charset': 'utf8mb4',
+    }
+    if _env('MYSQL_SSL', '').lower() in ('1', 'true', 'yes'):
+        _db_options['ssl'] = True
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': _env('MYSQLDATABASE', 'railway'),
+            'USER': _env('MYSQLUSER', 'root'),
+            'PASSWORD': _env('MYSQLPASSWORD', ''),
+            'HOST': _env('MYSQLHOST'),
+            'PORT': _env('MYSQLPORT', '3306'),
+            'OPTIONS': _db_options,
         }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': _env('DB_NAME', 'project_database'),
+            'USER': _env('DB_USER', 'root'),
+            'PASSWORD': _env('DB_PASSWORD', '0000'),
+            'HOST': _env('DB_HOST', '127.0.0.1'),
+            'PORT': _env('DB_PORT', '3306'),
+            'OPTIONS': {
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'"
+            }
+        }
+    }
 
 # ======================
 #  AUTENTICACIÓN
@@ -115,6 +141,7 @@ USE_TZ = True
 # ======================
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -122,9 +149,5 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # ======================
 #  CORS
 # ======================
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",  # desarrollo
-]
-
-# Para desarrollo puedes habilitar todo (⚠️ no en producción)
-# CORS_ALLOW_ALL_ORIGINS = True
+_CORS_ORIGINS = _env('CORS_ALLOWED_ORIGINS', 'http://localhost:5173')
+CORS_ALLOWED_ORIGINS = [o.strip() for o in _CORS_ORIGINS.split(',') if o.strip()]

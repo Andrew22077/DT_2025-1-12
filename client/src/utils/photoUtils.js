@@ -1,5 +1,7 @@
 // src/utils/photoUtils.js
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+
 /**
  * Construye la URL completa para una foto del backend
  * @param {string} fotoUrl - URL relativa de la foto desde el backend
@@ -10,13 +12,11 @@ export const buildPhotoUrl = (fotoUrl) => {
     return null;
   }
   
-  // Si ya es una URL completa, devolverla tal como está
   if (fotoUrl.startsWith("http")) {
     return fotoUrl;
   }
   
-  // Construir URL completa con el backend
-  return `http://localhost:8000${fotoUrl}`;
+  return `${API_BASE}${fotoUrl}`;
 };
 
 /**
